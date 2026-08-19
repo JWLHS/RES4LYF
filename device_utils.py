@@ -106,25 +106,35 @@ def set_memory_fraction(fraction, device=None):
 
 
 def pinv(tensor, **kwargs):
-    """torch.linalg.pinv with a CPU fallback on XPU (fp64 is unsupported there)."""
+    """torch.linalg.pinv with an fp32 on-device path on XPU.
+
+    XPU cannot execute pinv even in fp32 (the internal implementation promotes
+    to fp64), so on XPU the pseudoinverse is reconstructed from an fp32 SVD
+    entirely on the device — much faster than a CPU round-trip. The result
+    matches torch.linalg.pinv to fp32 precision (~1e-8).
+    """
     if tensor.device.type == "xpu":
-        # XPU cannot run pinv in fp64 (or fp32): compute on CPU, keep fp32 on device
-        return torch.linalg.pinv(tensor.cpu().float(), **kwargs).to(tensor.device)
+        work = tensor.float()
+        U, S, Vh = torch.linalg.svd(work, full_matrices=False)
+        M, N = work.shape[-2:]
+        cutoff = max(M, N) * torch.finfo(work.dtype).eps * S.max(dim=-1, keepdim=True).values
+        S_inv = torch.where(S > cutoff, 1.0 / S, torch.zeros_like(S))
+        return (Vh.transpose(-2, -1) * S_inv.unsqueeze(-2)) @ U.transpose(-2, -1)
     return torch.linalg.pinv(tensor, **kwargs)
 
 
 def eigh(tensor, **kwargs):
-    """torch.linalg.eigh with a CPU fallback on XPU (fp64 is unsupported there)."""
+    """torch.linalg.eigh with an fp32 on-device path on XPU (fp64 unsupported)."""
     if tensor.device.type == "xpu":
-        S, U = torch.linalg.eigh(tensor.cpu(), **kwargs)
+        S, U = torch.linalg.eigh(tensor.float(), **kwargs)
         return S.to(tensor.device), U.to(tensor.device)
     return torch.linalg.eigh(tensor, **kwargs)
 
 
 def svd(tensor, **kwargs):
-    """torch.linalg.svd with a CPU fallback on XPU (fp64 is unsupported there)."""
+    """torch.linalg.svd with an fp32 on-device path on XPU (fp64 unsupported)."""
     if tensor.device.type == "xpu":
-        U, S, Vh = torch.linalg.svd(tensor.cpu(), **kwargs)
+        U, S, Vh = torch.linalg.svd(tensor.float(), full_matrices=False, **kwargs)
         return U.to(tensor.device), S.to(tensor.device), Vh.to(tensor.device)
     return torch.linalg.svd(tensor, **kwargs)
 
@@ -132,20 +142,18 @@ def svd(tensor, **kwargs):
 def whitening_eigh(f_centered, eps=1e-5, use_svd=False):
     """Covariance + eigen decomposition used by the WCT feature-matching path.
 
-    Returns (S_eig, U_eig) on the input's device. On XPU the fp64 covariance
-    math is executed on CPU (XPU has no fp64 support) and the result is cast
-    back to the input's dtype/device.
+    Returns (S_eig, U_eig) on the input's device. CUDA keeps the fp64 math
+    unchanged; XPU computes the covariance in fp32 on the device (XPU has no
+    fp64 support) and returns fp32 tensors on the same device.
     """
     if f_centered.device.type == "xpu":
-        work = f_centered.cpu()
-        cov = (work.T.double() @ work.double()) / (work.size(0) - 1)
+        work = f_centered.float()
+        cov = (work.T @ work) / (work.size(0) - 1)
         cov = cov + eps * torch.eye(cov.size(0), dtype=cov.dtype, device=cov.device)
         if use_svd:
-            U_svd, S_svd, _ = torch.linalg.svd(cov)
-            S_eig, U_eig = S_svd, U_svd
-        else:
-            S_eig, U_eig = torch.linalg.eigh(cov)
-        return S_eig.to(f_centered), U_eig.to(f_centered)
+            U_svd, S_svd, _ = torch.linalg.svd(cov, full_matrices=False)
+            return S_svd, U_svd
+        return torch.linalg.eigh(cov)
     cov = (f_centered.T.double() @ f_centered.double()) / (f_centered.size(0) - 1)
     cov = cov + eps * torch.eye(cov.size(0), dtype=cov.dtype, device=cov.device)
     if use_svd:

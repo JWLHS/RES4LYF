@@ -3,9 +3,10 @@
 **Intel Arc / XPU support (this fork):** device placement, RNG seeding, memory
 reporting, and style-transfer linear algebra now auto-detect the active torch
 backend via ComfyUI's `model_management`. On Intel Arc (A770/DG2, torch-xpu)
-everything runs on `xpu`; the few operations Intel XPU cannot execute in fp64
-(e.g. `torch.linalg.pinv` / WCT covariance eigendecompositions) fall back to
-CPU and move the result back. No configuration is required.
+everything runs on `xpu`; operations that Intel XPU cannot execute in fp64
+(e.g. `torch.linalg.pinv` / WCT covariance eigendecompositions) run in fp32 on
+the device instead, with `pinv` reconstructed from an on-device fp32 SVD. No
+configuration is required.
 
 RES_3M vs. Uni-PC (WAN). Typically only 20 steps are needed with RES samplers. Far more are needed with Uni-PC and other common samplers, and they never reach the same level of quality.
 

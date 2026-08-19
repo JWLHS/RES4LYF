@@ -671,12 +671,13 @@ def interpolate_spd(cov1, cov2, t, eps=1e-5):
     """
     out_device = cov1.device
     out_dtype  = cov1.dtype
-    cpu_fallback = out_device.type == "xpu"  # XPU has no fp64 support
-    if cpu_fallback:
-        cov1 = cov1.cpu()
-        cov2 = cov2.cpu()
-    cov1 = cov1.double()
-    cov2 = cov2.double()
+    xpu = out_device.type == "xpu"  # XPU has no fp64 support
+    if xpu:
+        cov1 = cov1.float()
+        cov2 = cov2.float()
+    else:
+        cov1 = cov1.double()
+        cov2 = cov2.double()
 
     M1 = cov1.clone()
     M1.diagonal().add_(eps)
@@ -702,7 +703,7 @@ def interpolate_spd(cov1, cov2, t, eps=1e-5):
 
     cov_t = M1_sqrt @ middle_t @ M1_sqrt
 
-    if cpu_fallback:
+    if xpu:
         return cov_t.to(device=out_device, dtype=out_dtype)
     return cov_t.to(cov1.dtype) 
 
