@@ -10,6 +10,7 @@ import torch.optim as optim
 
 from comfy.k_diffusion.sampling import get_sigmas_polyexponential, get_sigmas_karras
 import comfy.samplers
+from ..device_utils import get_torch_device
 
 def rescale_linear(input, input_min, input_max, output_min, output_max):
     output = ((input - input_min) / (input_max - input_min)) * (output_max - output_min) + output_min;
@@ -342,7 +343,7 @@ class sigmas_from_text:
         text_list = [float(val) for val in text.replace(",", " ").split()]
         #text_list = [float(val.strip()) for val in text.split(",")]
 
-        sigmas = torch.tensor(text_list).to('cuda').to(torch.float64)
+        sigmas = torch.tensor(text_list).to(get_torch_device()).to(torch.float64)
         
         return (sigmas,)
 
@@ -1261,6 +1262,5 @@ def get_sigmas(model, scheduler, steps, denoise, lq_inflection_percent=0.5): #ad
     
     sigmas = sigmas[-(steps + 1):]
     return sigmas
-
 
 

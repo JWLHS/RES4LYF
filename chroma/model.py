@@ -9,8 +9,10 @@ from einops import rearrange, repeat
 import comfy.ldm.common_dit
 
 from ..helper import ExtraOptions
+from ..device_utils import get_torch_device
 
 from ..latents import tile_latent, untile_latent, gaussian_blur_2d, median_blur_2d
+from ..device_utils import pinv, whitening_eigh
 from ..style_transfer import apply_scattersort_masked, apply_scattersort_tiled, adain_seq_inplace, adain_patchwise_row_batch_med, adain_patchwise_row_batch
 
 from comfy.ldm.flux.layers import (
@@ -195,7 +197,7 @@ class ReChroma(nn.Module):
         
         if not UNCOND and 'AttnMask' in transformer_options: # and weight != 0:
             AttnMask = transformer_options['AttnMask']
-            mask = transformer_options['AttnMask'].attn_mask.mask.to('cuda')
+            mask = transformer_options['AttnMask'].attn_mask.mask.to(get_torch_device())
             if mask_zero is None:
                 mask_zero = torch.ones_like(mask)
                 img_len = transformer_options['AttnMask'].img_len
@@ -218,7 +220,7 @@ class ReChroma(nn.Module):
             
         elif UNCOND and 'AttnMask' in transformer_options:
             AttnMask = transformer_options['AttnMask']
-            mask = transformer_options['AttnMask'].attn_mask.mask.to('cuda')
+            mask = transformer_options['AttnMask'].attn_mask.mask.to(get_torch_device())
             if mask_zero is None:
                 mask_zero = torch.ones_like(mask)
                 img_len = transformer_options['AttnMask'].img_len
@@ -445,7 +447,7 @@ class ReChroma(nn.Module):
             
             if not UNCOND and 'AttnMask' in transformer_options: # and weight != 0:
                 AttnMask = transformer_options['AttnMask']
-                mask = transformer_options['AttnMask'].attn_mask.mask.to('cuda')
+                mask = transformer_options['AttnMask'].attn_mask.mask.to(get_torch_device())
 
                 if weight == 0:
                     context_tmp = transformer_options['RegContext'].context.to(context.dtype).to(context.device)
@@ -455,7 +457,7 @@ class ReChroma(nn.Module):
                 
             if UNCOND and 'AttnMask_neg' in transformer_options: # and weight != 0:
                 AttnMask = transformer_options['AttnMask_neg']
-                mask = transformer_options['AttnMask_neg'].attn_mask.mask.to('cuda')
+                mask = transformer_options['AttnMask_neg'].attn_mask.mask.to(get_torch_device())
 
                 if weight == 0:
                     context_tmp = transformer_options['RegContext_neg'].context.to(context.dtype).to(context.device)
@@ -465,7 +467,7 @@ class ReChroma(nn.Module):
 
             elif UNCOND and 'AttnMask' in transformer_options:
                 AttnMask = transformer_options['AttnMask']
-                mask = transformer_options['AttnMask'].attn_mask.mask.to('cuda')
+                mask = transformer_options['AttnMask'].attn_mask.mask.to(get_torch_device())
                 A       = context
                 B       = transformer_options['RegContext'].context
                 context_tmp = A.repeat(1,    (B.shape[1] // A.shape[1]) + 1, 1)[:,   :B.shape[1], :]
@@ -874,9 +876,7 @@ class ReChroma(nn.Module):
                     self.mu_s    = f_s.mean(dim=0, keepdim=True)
                     f_s_centered = f_s - self.mu_s
                     
-                    cov = (f_s_centered.T.double() @ f_s_centered.double()) / (f_s_centered.size(0) - 1)
-
-                    S_eig, U_eig = torch.linalg.eigh(cov + 1e-5 * torch.eye(cov.size(0), dtype=cov.dtype, device=cov.device))
+                    S_eig, U_eig = whitening_eigh(f_s_centered)
                     S_eig_sqrt    = S_eig.clamp(min=0).sqrt() # eigenvalues -> singular values
                     
                     whiten = U_eig @ torch.diag(S_eig_sqrt) @ U_eig.T
@@ -887,9 +887,7 @@ class ReChroma(nn.Module):
                     mu_c         = f_c.mean(dim=0, keepdim=True)
                     f_c_centered = f_c - mu_c
                     
-                    cov = (f_c_centered.T.double() @ f_c_centered.double()) / (f_c_centered.size(0) - 1)
-
-                    S_eig, U_eig  = torch.linalg.eigh(cov + 1e-5 * torch.eye(cov.size(0), dtype=cov.dtype, device=cov.device))
+                    S_eig, U_eig = whitening_eigh(f_c_centered)
                     inv_sqrt_eig  = S_eig.clamp(min=0).rsqrt() 
                     
                     whiten = U_eig @ torch.diag(inv_sqrt_eig) @ U_eig.T
@@ -901,7 +899,7 @@ class ReChroma(nn.Module):
                     denoised_embed[wct_i] = f_cs
 
             
-            denoised_approx = (denoised_embed - b.to(denoised_embed)) @ torch.linalg.pinv(W).T.to(denoised_embed)
+            denoised_approx = (denoised_embed - b.to(denoised_embed)) @ pinv(W).T.to(denoised_embed)
             denoised_approx = denoised_approx.to(eps)
             
             denoised_approx = rearrange(denoised_approx, "b (h w) (c ph pw) -> b c (h ph) (w pw)", h=h_len, w=w_len, ph=2, pw=2)[:,:,:h,:w]
@@ -1024,9 +1022,7 @@ class ReChroma(nn.Module):
                     self.mu_s    = f_s.mean(dim=0, keepdim=True)
                     f_s_centered = f_s - self.mu_s
                     
-                    cov = (f_s_centered.T.double() @ f_s_centered.double()) / (f_s_centered.size(0) - 1)
-
-                    S_eig, U_eig = torch.linalg.eigh(cov + 1e-5 * torch.eye(cov.size(0), dtype=cov.dtype, device=cov.device))
+                    S_eig, U_eig = whitening_eigh(f_s_centered)
                     S_eig_sqrt    = S_eig.clamp(min=0).sqrt() # eigenvalues -> singular values
                     
                     whiten = U_eig @ torch.diag(S_eig_sqrt) @ U_eig.T
@@ -1037,9 +1033,7 @@ class ReChroma(nn.Module):
                     mu_c         = f_c.mean(dim=0, keepdim=True)
                     f_c_centered = f_c - mu_c
                     
-                    cov = (f_c_centered.T.double() @ f_c_centered.double()) / (f_c_centered.size(0) - 1)
-
-                    S_eig, U_eig  = torch.linalg.eigh(cov + 1e-5 * torch.eye(cov.size(0), dtype=cov.dtype, device=cov.device))
+                    S_eig, U_eig = whitening_eigh(f_c_centered)
                     inv_sqrt_eig  = S_eig.clamp(min=0).rsqrt() 
                     
                     whiten = U_eig @ torch.diag(inv_sqrt_eig) @ U_eig.T
@@ -1050,7 +1044,7 @@ class ReChroma(nn.Module):
                     
                     denoised_embed[wct_i] = f_cs
 
-            denoised_approx = (denoised_embed - b.to(denoised_embed)) @ torch.linalg.pinv(W).T.to(denoised_embed)
+            denoised_approx = (denoised_embed - b.to(denoised_embed)) @ pinv(W).T.to(denoised_embed)
             denoised_approx = denoised_approx.to(eps)
             
             denoised_approx = rearrange(denoised_approx, "b (h w) (c ph pw) -> b c (h ph) (w pw)", h=h_len, w=w_len, ph=2, pw=2)[:,:,:h,:w]
@@ -1497,5 +1491,4 @@ def adain_patchwise_strict_sortmatch9(
                     if sel.any():
                         out[b:b+1, :, oy0:oy1, ox0:ox1][:, :,sel]   =   inner[b:b+1, :, iy0:iy1, ix0:ix1][:, :, sel]
     return out
-
 

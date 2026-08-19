@@ -10,6 +10,8 @@ import comfy.clip_vision
 import comfy.supported_models
 from comfy.utils import load_torch_file
 
+from .device_utils import manual_seed_all
+
 # Documentation: Self-documenting code
 # Instructions for use: Obvious
 # Expected results: Fork desync
@@ -243,7 +245,7 @@ class FluxLoader(BaseModelLoader):
         model_options = self.process_weight_dtype(weight_dtype)
         
         torch.manual_seed(42)
-        torch.cuda.manual_seed_all(42)
+        manual_seed_all(42)
 
         if clip_name1 == ".use_ckpt_clip" and clip_name2_opt != ".none":
             raise ValueError("Cannot specify both \".use_ckpt_clip\" and another clip")
@@ -295,7 +297,7 @@ class SD35Loader(BaseModelLoader):
         model_options = self.process_weight_dtype(weight_dtype)
         
         torch.manual_seed(42)
-        torch.cuda.manual_seed_all(42)
+        manual_seed_all(42)
         
         if clip_name1 == ".use_ckpt_clip" and (clip_name2_opt != ".none" or clip_name3_opt != ".none"):
             raise ValueError("Cannot specify both \".use_ckpt_clip\" and another clip")
@@ -344,7 +346,7 @@ class RES4LYFModelLoader(BaseModelLoader):
         model_options = self.process_weight_dtype(weight_dtype)
         
         torch.manual_seed(42)
-        torch.cuda.manual_seed_all(42)
+        manual_seed_all(42)
 
         if clip_name1_opt == ".use_ckpt_clip" and (clip_name2_opt != ".none" or clip_name3_opt != ".none" or clip_name4_opt != ".none"):
             raise ValueError("Cannot specify both \".use_ckpt_clip\" and another clip")
@@ -419,8 +421,8 @@ class LayerPatcher:
                 device=m.x_embedder.proj.weight.data.device,
                 dtype=dtype
                 )
-            m.x_embedder.proj.weight.data = embedder['x_embedder.proj.weight'].to(dtype).cuda()
-            m.x_embedder.proj.bias.data   = embedder['x_embedder.proj.bias'].to(dtype).cuda()
+            m.x_embedder.proj.weight.data = embedder['x_embedder.proj.weight'].to(device=m.x_embedder.proj.weight.data.device, dtype=dtype)
+            m.x_embedder.proj.bias.data   = embedder['x_embedder.proj.bias'].to(device=m.x_embedder.proj.bias.data.device, dtype=dtype)
         
         if gates:
             for key, tensor in gates.items():
@@ -428,10 +430,10 @@ class LayerPatcher:
                 set_nested_attr(model=m, key=key, value=tensor, dtype=dtype)
         
         if last_layer:
-            m.final_layer.linear.weight.data = last_layer['final_layer.linear.weight'].to(dtype).cuda()
-            m.final_layer.linear.bias.data   = last_layer['final_layer.linear.bias'].to(dtype).cuda()
-            m.final_layer.adaLN_modulation[1].weight.data = last_layer['final_layer.adaLN_modulation.1.weight'].to(dtype).cuda()
-            m.final_layer.adaLN_modulation[1].bias.data = last_layer['final_layer.adaLN_modulation.1.bias'].to(dtype).cuda()
+            m.final_layer.linear.weight.data = last_layer['final_layer.linear.weight'].to(device=m.final_layer.linear.weight.data.device, dtype=dtype)
+            m.final_layer.linear.bias.data   = last_layer['final_layer.linear.bias'].to(device=m.final_layer.linear.bias.data.device, dtype=dtype)
+            m.final_layer.adaLN_modulation[1].weight.data = last_layer['final_layer.adaLN_modulation.1.weight'].to(device=m.final_layer.adaLN_modulation[1].weight.data.device, dtype=dtype)
+            m.final_layer.adaLN_modulation[1].bias.data = last_layer['final_layer.adaLN_modulation.1.bias'].to(device=m.final_layer.adaLN_modulation[1].bias.data.device, dtype=dtype)
 
         #if retrojector:
         #    m.Retrojector = Retrojector(model.model.diffusion_model.img_in, pinv_dtype=style_dtype, dtype=style_dtype)
@@ -453,6 +455,4 @@ def set_nested_attr(model, key, value, dtype):
         else:
             attr = getattr(attr, p)
     getattr(attr, parts[-1]).data.copy_(value.to(getattr(attr, parts[-1]).device, dtype=dtype))
-
-
 

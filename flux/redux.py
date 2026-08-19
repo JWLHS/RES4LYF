@@ -47,7 +47,11 @@ class ReReduxImageEncoder(torch.nn.Module):
         cond_256 = cond[0][0].clone()
         
         if not hasattr(self, "W_pinv"):
-            self.W_pinv = torch.linalg.pinv(W.to(pinv_dtype).cuda()).to(W)
+            if W.device.type == "xpu":
+                # XPU has no fp64 support: compute the pseudoinverse on CPU
+                self.W_pinv = torch.linalg.pinv(W.cpu().to(pinv_dtype)).to(W)
+            else:
+                self.W_pinv = torch.linalg.pinv(W.to(pinv_dtype).to(W.device)).to(W)
         
         #cond_256_embed = (cond_256 - b) @ torch.linalg.pinv(W.to(pinv_dtype)).T.to(dtype)
         cond_embed256 = (cond_256 - b.to(cond_256)) @ self.W_pinv.T.to(cond_256)
@@ -72,11 +76,18 @@ class ReReduxImageEncoder(torch.nn.Module):
                 self.mu_s    = f_s.mean(dim=0, keepdim=True)
                 f_s_centered = f_s - self.mu_s
                 
-                cov = (f_s_centered.T.double() @ f_s_centered.double()) / (f_s_centered.size(0) - 1)
-
-                S_eig, U_eig = torch.linalg.eigh((cov + 1e-5 * torch.eye(cov.size(0), dtype=cov.dtype, device=cov.device)).cuda())
-                S_eig = S_eig.to(cov)
-                U_eig = U_eig.to(cov)
+                if f_s_centered.device.type == "xpu":
+                    # XPU lacks fp64 support: run the covariance math on CPU
+                    work = f_s_centered.cpu()
+                    cov = (work.T.double() @ work.double()) / (work.size(0) - 1)
+                    S_eig, U_eig = torch.linalg.eigh(cov + 1e-5 * torch.eye(cov.size(0), dtype=cov.dtype, device=cov.device))
+                    S_eig = S_eig.to(f_s_centered)
+                    U_eig = U_eig.to(f_s_centered)
+                else:
+                    cov = (f_s_centered.T.double() @ f_s_centered.double()) / (f_s_centered.size(0) - 1)
+                    S_eig, U_eig = torch.linalg.eigh((cov + 1e-5 * torch.eye(cov.size(0), dtype=cov.dtype, device=cov.device)).to(cov.device))
+                    S_eig = S_eig.to(cov)
+                    U_eig = U_eig.to(cov)
                 
                 S_eig_sqrt    = S_eig.clamp(min=0).sqrt() # eigenvalues -> singular values
                 
@@ -88,11 +99,17 @@ class ReReduxImageEncoder(torch.nn.Module):
                 mu_c         = f_c.mean(dim=0, keepdim=True)
                 f_c_centered = f_c - mu_c
                 
-                cov = (f_c_centered.T.double() @ f_c_centered.double()) / (f_c_centered.size(0) - 1)
-
-                S_eig, U_eig  = torch.linalg.eigh((cov + 1e-5 * torch.eye(cov.size(0), dtype=cov.dtype, device=cov.device)).cuda())
-                S_eig = S_eig.to(cov)
-                U_eig = U_eig.to(cov)
+                if f_c_centered.device.type == "xpu":
+                    work = f_c_centered.cpu()
+                    cov = (work.T.double() @ work.double()) / (work.size(0) - 1)
+                    S_eig, U_eig = torch.linalg.eigh(cov + 1e-5 * torch.eye(cov.size(0), dtype=cov.dtype, device=cov.device))
+                    S_eig = S_eig.to(f_c_centered)
+                    U_eig = U_eig.to(f_c_centered)
+                else:
+                    cov = (f_c_centered.T.double() @ f_c_centered.double()) / (f_c_centered.size(0) - 1)
+                    S_eig, U_eig  = torch.linalg.eigh((cov + 1e-5 * torch.eye(cov.size(0), dtype=cov.dtype, device=cov.device)).to(cov.device))
+                    S_eig = S_eig.to(cov)
+                    U_eig = U_eig.to(cov)
                 
                 inv_sqrt_eig  = S_eig.clamp(min=0).rsqrt() 
                 
@@ -122,4 +139,3 @@ def adain_seq_inplace(content: torch.Tensor, style: torch.Tensor, eps: float = 1
 
 def adain_seq(content: torch.Tensor, style: torch.Tensor, eps: float = 1e-7) -> torch.Tensor:
     return ((content - content.mean(1, keepdim=True)) / (content.std(1, keepdim=True) + eps)) * (style.std(1, keepdim=True) + eps) + style.mean(1, keepdim=True)
-

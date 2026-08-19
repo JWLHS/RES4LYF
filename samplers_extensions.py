@@ -9,6 +9,7 @@ import copy
 from nodes import MAX_RESOLUTION
 
 from ..helper                import OptionsManager, FrameWeightsManager, initialize_or_scale, get_res4lyf_scheduler_list, parse_range_string, parse_tile_sizes
+from .device_utils           import get_torch_device
 
 from .rk_coefficients_beta   import RK_SAMPLER_NAMES_BETA_FOLDERS, get_default_sampler_name, get_sampler_name_list, process_sampler_name
 
@@ -244,7 +245,7 @@ class ClownOptions_DetailBoost_Beta:
         options = options if options is not None else {}
         
         default_dtype = torch.float64
-        default_device = torch.device('cuda')
+        default_device = get_torch_device()
         
         if noise_scaling_type.endswith("_normal"):
             sampler_scaling_normalize = True
@@ -355,7 +356,7 @@ class ClownOptions_SigmaScaling_Beta:
         options = options if options is not None else {}
         
         default_dtype = torch.float64
-        default_device = torch.device('cuda')
+        default_device = get_torch_device()
         
         
         

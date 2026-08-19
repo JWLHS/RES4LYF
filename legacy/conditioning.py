@@ -11,6 +11,7 @@ from copy import deepcopy
 
 from .helper import initialize_or_scale
 import torch.nn.functional as F
+from ..device_utils import get_torch_device
 import copy
 
 from .helper import get_orthogonal, get_collinear
@@ -406,7 +407,7 @@ class RegionalMask(torch.nn.Module):
     def __init__(self, mask: torch.Tensor, conditioning: torch.Tensor, conditioning_regional: torch.Tensor, latent:torch.Tensor, start_percent: float, end_percent: float, mask_type: str, img_len: int, text_len: int) -> None:
         super().__init__()
         #self.register_buffer('mask', mask)
-        self.mask = mask.clone().to('cuda')
+        self.mask = mask.clone().to(get_torch_device())
         self.conditioning = copy.deepcopy(conditioning)
         self.conditioning_regional = copy.deepcopy(conditioning_regional)
         self.latent = latent.clone()
@@ -489,7 +490,7 @@ class RegionalConditioning(torch.nn.Module):
         super().__init__()
         #self.register_buffer('region_cond', region_cond)
         self.conditioning = conditioning
-        self.region_cond = region_cond.clone().to('cuda')
+        self.region_cond = region_cond.clone().to(get_torch_device())
         self.start_percent = start_percent
         self.end_percent   = end_percent
 

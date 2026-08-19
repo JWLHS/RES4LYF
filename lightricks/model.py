@@ -10,6 +10,7 @@ from typing import Dict, Optional, Tuple, List
 
 from .symmetric_patchifier import SymmetricPatchifier, latent_to_pixel_coords
 from ..helper  import ExtraOptions
+from ..device_utils import pinv, whitening_eigh
 
 
 def get_timestep_embedding(
@@ -557,7 +558,7 @@ class ReLTXVModel(torch.nn.Module):
                 denoised_embed = adain_seq_inplace(denoised_embed, y0_adain_embed)
                 for adain_iter in range(EO("style_iter", 0)):
                     denoised_embed = adain_seq_inplace(denoised_embed, y0_adain_embed)
-                    denoised_embed = (denoised_embed - b) @ torch.linalg.pinv(W.to(pinv_dtype)).T.to(dtype)
+                    denoised_embed = (denoised_embed - b) @ pinv(W.to(pinv_dtype)).T.to(dtype)
                     denoised_embed = F.linear(denoised_embed.to(W), W, b).to(img)
                     denoised_embed = adain_seq_inplace(denoised_embed, y0_adain_embed)
                     
@@ -569,9 +570,7 @@ class ReLTXVModel(torch.nn.Module):
                     self.mu_s    = f_s.mean(dim=0, keepdim=True)
                     f_s_centered = f_s - self.mu_s
                     
-                    cov = (f_s_centered.T.double() @ f_s_centered.double()) / (f_s_centered.size(0) - 1)
-
-                    S_eig, U_eig = torch.linalg.eigh(cov + 1e-5 * torch.eye(cov.size(0), dtype=cov.dtype, device=cov.device))
+                    S_eig, U_eig = whitening_eigh(f_s_centered)
                     S_eig_sqrt    = S_eig.clamp(min=0).sqrt() # eigenvalues -> singular values
                     
                     whiten = U_eig @ torch.diag(S_eig_sqrt) @ U_eig.T
@@ -582,9 +581,7 @@ class ReLTXVModel(torch.nn.Module):
                     mu_c         = f_c.mean(dim=0, keepdim=True)
                     f_c_centered = f_c - mu_c
                     
-                    cov = (f_c_centered.T.double() @ f_c_centered.double()) / (f_c_centered.size(0) - 1)
-
-                    S_eig, U_eig  = torch.linalg.eigh(cov + 1e-5 * torch.eye(cov.size(0), dtype=cov.dtype, device=cov.device))
+                    S_eig, U_eig = whitening_eigh(f_c_centered)
                     inv_sqrt_eig  = S_eig.clamp(min=0).rsqrt() 
                     
                     whiten = U_eig @ torch.diag(inv_sqrt_eig) @ U_eig.T
@@ -596,7 +593,7 @@ class ReLTXVModel(torch.nn.Module):
                     denoised_embed[wct_i] = f_cs
 
             
-            denoised_approx = (denoised_embed - b.to(denoised_embed)) @ torch.linalg.pinv(W).T.to(denoised_embed)
+            denoised_approx = (denoised_embed - b.to(denoised_embed)) @ pinv(W).T.to(denoised_embed)
             denoised_approx = denoised_approx.to(eps)
             
 
@@ -648,7 +645,7 @@ class ReLTXVModel(torch.nn.Module):
                 denoised_embed = adain_seq_inplace(denoised_embed, y0_adain_embed)
                 for adain_iter in range(EO("style_iter", 0)):
                     denoised_embed = adain_seq_inplace(denoised_embed, y0_adain_embed)
-                    denoised_embed = (denoised_embed - b) @ torch.linalg.pinv(W.to(pinv_dtype)).T.to(dtype)
+                    denoised_embed = (denoised_embed - b) @ pinv(W.to(pinv_dtype)).T.to(dtype)
                     denoised_embed = F.linear(denoised_embed.to(W), W, b).to(img)
                     denoised_embed = adain_seq_inplace(denoised_embed, y0_adain_embed)
                     
@@ -660,9 +657,7 @@ class ReLTXVModel(torch.nn.Module):
                     self.mu_s    = f_s.mean(dim=0, keepdim=True)
                     f_s_centered = f_s - self.mu_s
                     
-                    cov = (f_s_centered.T.double() @ f_s_centered.double()) / (f_s_centered.size(0) - 1)
-
-                    S_eig, U_eig = torch.linalg.eigh(cov + 1e-5 * torch.eye(cov.size(0), dtype=cov.dtype, device=cov.device))
+                    S_eig, U_eig = whitening_eigh(f_s_centered)
                     S_eig_sqrt    = S_eig.clamp(min=0).sqrt() # eigenvalues -> singular values
                     
                     whiten = U_eig @ torch.diag(S_eig_sqrt) @ U_eig.T
@@ -673,9 +668,7 @@ class ReLTXVModel(torch.nn.Module):
                     mu_c         = f_c.mean(dim=0, keepdim=True)
                     f_c_centered = f_c - mu_c
                     
-                    cov = (f_c_centered.T.double() @ f_c_centered.double()) / (f_c_centered.size(0) - 1)
-
-                    S_eig, U_eig  = torch.linalg.eigh(cov + 1e-5 * torch.eye(cov.size(0), dtype=cov.dtype, device=cov.device))
+                    S_eig, U_eig = whitening_eigh(f_c_centered)
                     inv_sqrt_eig  = S_eig.clamp(min=0).rsqrt() 
                     
                     whiten = U_eig @ torch.diag(inv_sqrt_eig) @ U_eig.T
@@ -686,7 +679,7 @@ class ReLTXVModel(torch.nn.Module):
                     
                     denoised_embed[wct_i] = f_cs
 
-            denoised_approx = (denoised_embed - b.to(denoised_embed)) @ torch.linalg.pinv(W).T.to(denoised_embed)
+            denoised_approx = (denoised_embed - b.to(denoised_embed)) @ pinv(W).T.to(denoised_embed)
             denoised_approx = denoised_approx.to(eps)
             
             #denoised_approx = rearrange(denoised_approx, "b (h w) (c ph pw) -> b c (h ph) (w pw)", h=h_len, w=w_len, ph=2, pw=2)[:,:,:h,:w]

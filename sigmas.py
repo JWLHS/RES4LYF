@@ -12,6 +12,7 @@ import math
 
 from comfy.k_diffusion.sampling import get_sigmas_polyexponential, get_sigmas_karras
 import comfy.samplers
+from .device_utils import get_torch_device
 
 from torch import Tensor, nn
 from typing import Optional, Callable, Tuple, Dict, Any, Union, TYPE_CHECKING, TypeVar
@@ -1325,7 +1326,7 @@ class ClownScheduler:
                                             )
         else:
             default_dtype  = torch.float64
-            default_device = torch.device("cuda") 
+            default_device = get_torch_device()
             
             if scheduler_end_step == -1:
                 scheduler_total_steps = total_steps - scheduler_start_step
@@ -1370,7 +1371,7 @@ class ClownScheduler:
                                 ) -> Tuple[Tensor]:
 
         default_dtype  = torch.float64
-        default_device = torch.device("cuda") 
+        default_device = get_torch_device()
         
         return (None,)
 
@@ -4096,4 +4097,3 @@ def bong_tangent_scheduler(model_sampling, steps, start=1.0, middle=0.5, end=0.0
     tan_sigmas = torch.tensor(tan_sigmas_1 + tan_sigmas_2)
 
     return tan_sigmas
-

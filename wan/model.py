@@ -17,6 +17,7 @@ import comfy.model_management
 
 from ..latents import interpolate_spd
 from ..helper  import ExtraOptions
+from ..device_utils import pinv, whitening_eigh
 
 
 def sinusoidal_embedding_1d(dim, position):
@@ -712,6 +713,8 @@ class ReWanModel(torch.nn.Module):
     def invert_patch_embedding(self, z: torch.Tensor, original_shape: torch.Size, grid_sizes: Optional[Tuple[int,int,int]] = None) -> torch.Tensor:
 
         import torch.nn.functional as F
+        if z.device.type == "xpu":
+            z = z.float()
         B, C_in, D, H, W = original_shape
         pD, pH, pW = self.patch_size
         sD, sH, sW = pD, pH, pW
@@ -740,7 +743,7 @@ class ReWanModel(torch.nn.Module):
         w2 = w3.squeeze(2)                       # [C_out, C_in, pH, pW]
         out_ch, in_ch, kH, kW = w2.shape
         W_flat = w2.view(out_ch, -1)            # [C_out, in_ch*pH*pW]
-        W_pinv = torch.linalg.pinv(W_flat)      # [in_ch*pH*pW, C_out]
+        W_pinv = pinv(W_flat)                   # [in_ch*pH*pW, C_out]
 
         # merge depth for 2D unfold wackiness
         z2 = z_nobias.permute(0,2,1,3,4).reshape(B*Dp, C_out, Hp, Wp)
@@ -987,9 +990,7 @@ class ReWanModel(torch.nn.Module):
                     self.mu_s    = f_s.mean(dim=0, keepdim=True)
                     f_s_centered = f_s - self.mu_s
                     
-                    cov = (f_s_centered.T.double() @ f_s_centered.double()) / (f_s_centered.size(0) - 1)
-
-                    S_eig, U_eig = torch.linalg.eigh(cov + 1e-5 * torch.eye(cov.size(0), dtype=cov.dtype, device=cov.device))
+                    S_eig, U_eig = whitening_eigh(f_s_centered)
                     S_eig_sqrt    = S_eig.clamp(min=0).sqrt() # eigenvalues -> singular values
                     
                     whiten = U_eig @ torch.diag(S_eig_sqrt) @ U_eig.T
@@ -1000,9 +1001,7 @@ class ReWanModel(torch.nn.Module):
                     mu_c         = f_c.mean(dim=0, keepdim=True)
                     f_c_centered = f_c - mu_c
                     
-                    cov = (f_c_centered.T.double() @ f_c_centered.double()) / (f_c_centered.size(0) - 1)
-
-                    S_eig, U_eig  = torch.linalg.eigh(cov + 1e-5 * torch.eye(cov.size(0), dtype=cov.dtype, device=cov.device))
+                    S_eig, U_eig = whitening_eigh(f_c_centered)
                     inv_sqrt_eig  = S_eig.clamp(min=0).rsqrt() 
                     
                     whiten = U_eig @ torch.diag(inv_sqrt_eig) @ U_eig.T
@@ -1091,9 +1090,7 @@ class ReWanModel(torch.nn.Module):
                     self.mu_s    = f_s.mean(dim=0, keepdim=True)
                     f_s_centered = f_s - self.mu_s
                     
-                    cov = (f_s_centered.T.double() @ f_s_centered.double()) / (f_s_centered.size(0) - 1)
-
-                    S_eig, U_eig = torch.linalg.eigh(cov + 1e-5 * torch.eye(cov.size(0), dtype=cov.dtype, device=cov.device))
+                    S_eig, U_eig = whitening_eigh(f_s_centered)
                     S_eig_sqrt    = S_eig.clamp(min=0).sqrt() # eigenvalues -> singular values
                     
                     whiten = U_eig @ torch.diag(S_eig_sqrt) @ U_eig.T
@@ -1104,9 +1101,7 @@ class ReWanModel(torch.nn.Module):
                     mu_c         = f_c.mean(dim=0, keepdim=True)
                     f_c_centered = f_c - mu_c
                     
-                    cov = (f_c_centered.T.double() @ f_c_centered.double()) / (f_c_centered.size(0) - 1)
-
-                    S_eig, U_eig  = torch.linalg.eigh(cov + 1e-5 * torch.eye(cov.size(0), dtype=cov.dtype, device=cov.device))
+                    S_eig, U_eig = whitening_eigh(f_c_centered)
                     inv_sqrt_eig  = S_eig.clamp(min=0).rsqrt() 
                     
                     whiten = U_eig @ torch.diag(inv_sqrt_eig) @ U_eig.T

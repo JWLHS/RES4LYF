@@ -1,5 +1,12 @@
 # SUPERIOR SAMPLING WITH RES4LYF: THE POWER OF BONGMATH
 
+**Intel Arc / XPU support (this fork):** device placement, RNG seeding, memory
+reporting, and style-transfer linear algebra now auto-detect the active torch
+backend via ComfyUI's `model_management`. On Intel Arc (A770/DG2, torch-xpu)
+everything runs on `xpu`; the few operations Intel XPU cannot execute in fp64
+(e.g. `torch.linalg.pinv` / WCT covariance eigendecompositions) fall back to
+CPU and move the result back. No configuration is required.
+
 RES_3M vs. Uni-PC (WAN). Typically only 20 steps are needed with RES samplers. Far more are needed with Uni-PC and other common samplers, and they never reach the same level of quality.
 
 ![res_3m_vs_unipc_1](https://github.com/user-attachments/assets/9321baf9-2d68-4fe8-9427-fcf0609bd02b)

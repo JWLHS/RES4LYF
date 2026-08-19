@@ -12,6 +12,7 @@ import comfy
 
 
 from .latents import gaussian_blur_2d, median_blur_2d
+from .device_utils import get_torch_device, pinv, whitening_eigh
 
 # WIP... not yet in use...
 class StyleTransfer:  
@@ -115,7 +116,7 @@ class StyleTransfer:
     def invert_linear(self, x : torch.Tensor,) -> torch.Tensor:
         x = x.to(self.pinv_dtype)
         #x = (x - self.B.to(self.dtype)) @ torch.linalg.pinv(self.W.to(self.pinv_dtype)).T.to(self.dtype)
-        x = (x - self.B) @ torch.linalg.pinv(self.W).T
+        x = (x - self.B) @ pinv(self.W).T
         
         return x.to(self.dtype)
 
@@ -134,7 +135,7 @@ class StyleTransfer:
         z_nobias = z - b
 
         W_flat = conv.weight.view(C_out, -1).to(z)  
-        W_pinv = torch.linalg.pinv(W_flat)    
+        W_pinv = pinv(W_flat)    
 
         Bz, Co, Hp, Wp = z_nobias.shape
         z_flat = z_nobias.reshape(Bz, Co, -1)  
@@ -165,6 +166,8 @@ class StyleTransfer:
 
     def invert_conv3d(self, z: torch.Tensor, ) -> torch.Tensor:
         z = z.to(self.pinv_dtype)
+        if z.device.type == "xpu":
+            z = z.float()
         conv = self.embedder_method
         grid_sizes = self.grid_sizes
 
@@ -195,7 +198,7 @@ class StyleTransfer:
         w2 = w3.squeeze(2)                       # [C_out, C_in, pH, pW]
         out_ch, in_ch, kH, kW = w2.shape
         W_flat = w2.view(out_ch, -1)            # [C_out, in_ch*pH*pW]
-        W_pinv = torch.linalg.pinv(W_flat)      # [in_ch*pH*pW, C_out]
+        W_pinv = pinv(W_flat)                   # [in_ch*pH*pW, C_out]
 
         # merge depth for 2D unfold wackiness
         z2 = z_nobias.permute(0,2,1,3,4).reshape(B*Dp, C_out, Hp, Wp)
@@ -243,14 +246,7 @@ class StyleWCT:
         self.spatial_shape  = None
         
     def whiten(self, f_s_centered: torch.Tensor, set=False):
-        cov = (f_s_centered.T.double() @ f_s_centered.double()) / (f_s_centered.size(0) - 1)
-
-        if self.use_svd:
-            U_svd, S_svd, Vh_svd = torch.linalg.svd(cov + 1e-5 * torch.eye(cov.size(0), dtype=cov.dtype, device=cov.device))
-            S_eig = S_svd
-            U_eig = U_svd
-        else:
-            S_eig, U_eig = torch.linalg.eigh(cov + 1e-5 * torch.eye(cov.size(0), dtype=cov.dtype, device=cov.device))
+        S_eig, U_eig = whitening_eigh(f_s_centered, use_svd=self.use_svd)
         
         if set:
             S_eig_root = S_eig.clamp(min=0).sqrt() # eigenvalues -> singular values
@@ -425,14 +421,19 @@ class Retrojector:
         self.CONV2D     = isinstance(proj, nn.Conv2d)
         self.CONV3D     = isinstance(proj, nn.Conv3d)
         self.ENDO       = ENDO
-        self.W          = proj.weight.data.to(dtype=pinv_dtype).cuda()
+        self.W          = proj.weight.data.to(dtype=pinv_dtype, device=proj.weight.device)
+        if self.W.device.type == "xpu":
+            # XPU has no fp64 support: run the inversion math in fp32
+            self.W = self.W.float()
         
         if self.LINEAR:
-            self.W_inv = torch.linalg.pinv(self.W.cuda())
+            self.W_inv = pinv(self.W)
         elif self.CONV2D:
             C_out, _, kH, kW = proj.weight.shape
             W_flat = proj.weight.view(C_out, -1).to(dtype=pinv_dtype)
-            self.W_inv = torch.linalg.pinv(W_flat.cuda())
+            if W_flat.device.type == "xpu":
+                W_flat = W_flat.float()
+            self.W_inv = pinv(W_flat)
         
         if proj.bias is None:
             if self.LINEAR:
@@ -442,6 +443,8 @@ class Retrojector:
             self.b = torch.zeros(bias_size, dtype=pinv_dtype, device=self.W_inv.device)
         else:
             self.b = proj.bias.data.to(dtype=pinv_dtype).to(self.W_inv.device)
+        if self.W_inv.device.type == "xpu":
+            self.b = self.b.float()
         
     def embed(self, img: torch.Tensor):
         self.h = img.shape[-2] // self.patch_size
@@ -490,6 +493,8 @@ class Retrojector:
     def invert_conv2d(self, z: torch.Tensor,) -> torch.Tensor:
         z_dtype = z.dtype
         z = z.to(self.pinv_dtype)
+        if z.device.type == "xpu":
+            z = z.float()
         conv = self.proj
         
         B, C_in, H, W      = self.orig_shape
@@ -529,6 +534,8 @@ class Retrojector:
         return x_recon.to(z_dtype)
     
     def invert_patch_embedding(self, z: torch.Tensor, original_shape: torch.Size, grid_sizes: Optional[Tuple[int,int,int]] = None) -> torch.Tensor:
+        if z.device.type == "xpu":
+            z = z.float()
 
         B, C_in, D, H, W = original_shape
         pD, pH, pW = self.patch_size
@@ -558,7 +565,7 @@ class Retrojector:
         w2 = w3.squeeze(2)                       # [C_out, C_in, pH, pW]
         out_ch, in_ch, kH, kW = w2.shape
         W_flat = w2.view(out_ch, -1)            # [C_out, in_ch*pH*pW]
-        W_pinv = torch.linalg.pinv(W_flat)      # [in_ch*pH*pW, C_out]
+        W_pinv = pinv(W_flat)                   # [in_ch*pH*pW, C_out]
 
         # merge depth for 2D unfold wackiness
         z2 = z_nobias.permute(0,2,1,3,4).reshape(B*Dp, C_out, Hp, Wp)
@@ -592,6 +599,9 @@ def invert_conv2d(
 ) -> torch.Tensor:
     import torch.nn.functional as F
 
+    if z.device.type == "xpu":
+        z = z.float()
+
     B, C_in, H, W = original_shape
     C_out, _, kH, kW = conv.weight.shape
     stride_h, stride_w = conv.stride
@@ -604,7 +614,7 @@ def invert_conv2d(
         z_nobias = z
 
     W_flat = conv.weight.view(C_out, -1).to(z)  
-    W_pinv = torch.linalg.pinv(W_flat)    
+    W_pinv = pinv(W_flat)    
 
     Bz, Co, Hp, Wp = z_nobias.shape
     z_flat = z_nobias.reshape(Bz, Co, -1)  
@@ -1106,9 +1116,9 @@ class Stylizer:
     
     CLS_WCT2 = WaveletStyleWCT()
     
-    def __init__(self, dtype=torch.float64, device=torch.device("cuda")):
+    def __init__(self, dtype=torch.float64, device=None):
         self.dtype = dtype
-        self.device = device
+        self.device = device if device is not None else get_torch_device()
         self.mask  = [None]
         self.apply_to = [""]
         self.method = ["passthrough"]
@@ -1686,11 +1696,11 @@ class StyleMMDiT_BaseBlock:
         
         for i, mask in enumerate(self.mask):
             if mask is not None and mask.ndim > 1:
-                self.mask[i] = F.interpolate(mask.unsqueeze(0), size=(h_len, w_len)).flatten().to(torch.bfloat16).cuda()
+                self.mask[i] = F.interpolate(mask.unsqueeze(0), size=(h_len, w_len)).flatten().to(torch.bfloat16).to(get_torch_device())
             self.img.mask = self.mask
         for i, mask in enumerate(self.attn_mask):
             if mask is not None and mask.ndim > 1:
-                self.attn_mask[i] = F.interpolate(mask.unsqueeze(0), size=(h_len, w_len)).flatten().to(torch.bfloat16).cuda()
+                self.attn_mask[i] = F.interpolate(mask.unsqueeze(0), size=(h_len, w_len)).flatten().to(torch.bfloat16).to(get_torch_device())
             self.img.ATTN.mask = self.attn_mask      
 
 class StyleMMDiT_DoubleBlock(StyleMMDiT_BaseBlock):
@@ -1846,7 +1856,7 @@ class StyleUNet_BaseBlock(Stylizer):
         
         for i, mask in enumerate(self.mask):
             if mask is not None and mask.ndim > 1:
-                self.mask[i] = F.interpolate(mask.unsqueeze(0), size=(h_len, w_len)).flatten().to(torch.bfloat16).cuda()
+                self.mask[i] = F.interpolate(mask.unsqueeze(0), size=(h_len, w_len)).flatten().to(torch.bfloat16).to(get_torch_device())
             self.resample_block.mask = self.mask
             self.res_block.mask      = self.mask
             self.spatial_block.mask  = self.mask
@@ -1854,7 +1864,7 @@ class StyleUNet_BaseBlock(Stylizer):
             
         for i, mask in enumerate(self.attn_mask):
             if mask is not None and mask.ndim > 1:
-                self.attn_mask[i] = F.interpolate(mask.unsqueeze(0), size=(h_len, w_len)).flatten().to(torch.bfloat16).cuda()
+                self.attn_mask[i] = F.interpolate(mask.unsqueeze(0), size=(h_len, w_len)).flatten().to(torch.bfloat16).to(get_torch_device())
             self.spatial_block.TFMR.ATTN1.mask = self.attn_mask     
             
     def __call__(self, x, attr):
@@ -1892,7 +1902,7 @@ class StyleUNet_OutputBlock(StyleUNet_BaseBlock):
 
 class Style_Model(Stylizer):
 
-    def __init__(self, dtype=torch.float64, device=torch.device("cuda")):
+    def __init__(self, dtype=torch.float64, device=None):
         super().__init__(dtype, device)
         self.guides = []
         self.GUIDES_INITIALIZED = False
@@ -2012,7 +2022,7 @@ class Style_Model(Stylizer):
         
         for i, mask in enumerate(self.mask):
             if mask is not None and mask.ndim > 1:
-                self.mask[i] = F.interpolate(mask.unsqueeze(0), size=(h_len, w_len)).flatten().to(torch.bfloat16).cuda()
+                self.mask[i] = F.interpolate(mask.unsqueeze(0), size=(h_len, w_len)).flatten().to(torch.bfloat16).to(get_torch_device())
 
     def init_guides(self, model):
         if not self.GUIDES_INITIALIZED:
@@ -2138,14 +2148,14 @@ class Style_Model(Stylizer):
         if self.data_shock == "scattersort":
             return self.apply_to_data(denoised, datashock_ref, self.data_shock)
         else:
-            return torch.lerp(denoised, self.apply_to_data(denoised, datashock_ref, self.data_shock), torch.Tensor([self.data_shock_weight]).double().cuda())
+            return torch.lerp(denoised, self.apply_to_data(denoised, datashock_ref, self.data_shock), torch.Tensor([self.data_shock_weight]).double().to(self.device))
 
 
 
 
 class StyleMMDiT_Model(Style_Model):
 
-    def __init__(self, dtype=torch.float64, device=torch.device("cuda")):
+    def __init__(self, dtype=torch.float64, device=None):
         super().__init__(dtype, device)
         self.double_blocks = [StyleMMDiT_DoubleBlock() for _ in range(100)]
         self.single_blocks = [StyleMMDiT_SingleBlock() for _ in range(100)]
@@ -2160,7 +2170,7 @@ class StyleMMDiT_Model(Style_Model):
 
 class StyleUNet_Model(Style_Model):
 
-    def __init__(self, dtype=torch.float64, device=torch.device("cuda")):
+    def __init__(self, dtype=torch.float64, device=None):
         super().__init__(dtype, device)
         self.input_blocks  = [StyleUNet_InputBlock()  for _ in range(100)]
         self.middle_blocks = [StyleUNet_MiddleBlock() for _ in range(100)]

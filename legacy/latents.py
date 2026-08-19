@@ -10,6 +10,7 @@ import comfy.sampler_helpers
 import comfy.utils
 
 from .noise_classes import NOISE_GENERATOR_NAMES, NOISE_GENERATOR_CLASSES, precision_tool, prepare_noise
+from ..device_utils import get_torch_device
 
 
 
@@ -388,7 +389,7 @@ class latent_to_cuda:
     def main(self, latent, to_cuda):
         match to_cuda:
             case "True":
-                latent = latent.to('cuda')
+                latent = latent.to(get_torch_device())
             case "False":
                 latent = latent.to('cpu')
         return (latent,)
@@ -1734,6 +1735,5 @@ def hard_light_blend(base_latent, blend_latent):
     combined_result = ks2
     
     return combined_result
-
 
 

@@ -11,6 +11,7 @@ import comfy.sample
 import comfy.supported_models
 import comfy.utils
 import comfy.nested_tensor
+from ..device_utils import get_torch_device
 import comfy.patcher_extension
 from comfy.samplers import CFGGuider, sampling_function
 
@@ -252,7 +253,7 @@ class SharkSampler:
             EO              = ExtraOptions(extra_options)
             default_dtype   = EO("default_dtype", torch.float64)
             work_dtype      = EO("work_dtype",    torch.float32)   # latent-sized tensors; sigmas stay at default_dtype
-            default_device  = EO("work_device", "cuda" if torch.cuda.is_available() else "cpu")
+            default_device  = EO("work_device", str(get_torch_device()))
             
             noise_stdev     = options_mgr.get('noise_init_stdev', noise_stdev)
             noise_mean      = options_mgr.get('noise_init_mean',  noise_mean)
@@ -458,7 +459,7 @@ class SharkSampler:
                     x_lr        = latent_image['samples'].clone() if latent_image is not None else None
                     x_lr_bs     = 1                               if x_lr         is     None else x_lr.shape[-4]
                     x_lr_dtype  = default_dtype                   if x_lr         is     None else x_lr.dtype
-                    x_lr_device = 'cuda'                          if x_lr         is     None else x_lr.device
+                    x_lr_device = default_device                 if x_lr         is     None else x_lr.device
                     
                     ultracascade_stage_up_upscale_align_corners = EO("ultracascade_stage_up_upscale_align_corners", False)
                     ultracascade_stage_up_upscale_mode          = EO("ultracascade_stage_up_upscale_mode",         "bicubic")

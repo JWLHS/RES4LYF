@@ -11,6 +11,7 @@ import comfy.model_sampling
 import comfy.latent_formats
 import comfy.sd
 import comfy.supported_models
+from ..device_utils import manual_seed
 
 import latent_preview
 import torch
@@ -343,7 +344,7 @@ class SharkSamplerAlpha:
                 else:
                     seed = noise_seed + batch_num
                     torch.manual_seed(seed)
-                    torch.cuda.manual_seed(seed)
+                    manual_seed(seed)
                     #torch.cuda.manual_seed_all(seed)
 
 
@@ -800,5 +801,4 @@ class UltraSharkSampler:
                 out_denoised = out
                 
             return (out, out_denoised)
-
 

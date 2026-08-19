@@ -3,6 +3,7 @@ import torch.nn.functional as F
 from typing import Tuple, List, Union
 import math
 from .res4lyf import RESplain
+from .device_utils import get_torch_device
 
 import comfy.utils
 
@@ -621,7 +622,7 @@ def get_edge_mask_slug(mask: torch.Tensor, dilation: int = 3) -> torch.Tensor:
 def get_edge_mask(mask: torch.Tensor, dilation: int = 3) -> torch.Tensor:
     if dilation == 0:                                                         # safeguard for zero kernel size...
         return mask
-    mask_tmp = mask.squeeze().to('cuda')
+    mask_tmp = mask.squeeze().to(get_torch_device())
     mask_tmp = mask_tmp.float()
     
     eroded = -F.max_pool2d(-mask_tmp.unsqueeze(0).unsqueeze(0), kernel_size=3, stride=1, padding=1)
@@ -668,6 +669,12 @@ def interpolate_spd(cov1, cov2, t, eps=1e-5):
     Returns:
       cov_t:     the SPD matrix at fraction t along the geodesic from cov1 to cov2.
     """
+    out_device = cov1.device
+    out_dtype  = cov1.dtype
+    cpu_fallback = out_device.type == "xpu"  # XPU has no fp64 support
+    if cpu_fallback:
+        cov1 = cov1.cpu()
+        cov2 = cov2.cpu()
     cov1 = cov1.double()
     cov2 = cov2.double()
 
@@ -695,6 +702,8 @@ def interpolate_spd(cov1, cov2, t, eps=1e-5):
 
     cov_t = M1_sqrt @ middle_t @ M1_sqrt
 
+    if cpu_fallback:
+        return cov_t.to(device=out_device, dtype=out_dtype)
     return cov_t.to(cov1.dtype) 
 
 
@@ -1092,4 +1101,3 @@ class LatentHandler:
     def get_first_tensor(self):
         """Get first component tensor (for shape reference, mask prep, etc.)."""
         return get_latent(self.x, self.latent_shapes, 0)
-

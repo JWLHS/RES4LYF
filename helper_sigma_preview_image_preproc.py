@@ -13,6 +13,7 @@ import random
 import copy
 
 from io import BytesIO
+from .device_utils import manual_seed_all, pinv, whitening_eigh
 
 import matplotlib.pyplot as plt
 import matplotlib
@@ -255,7 +256,7 @@ class VAEEncodeAdvanced:
         # this is unfortunately required to avoid apparent non-deterministic outputs. 
         # without setting the seed each time, the outputs of the VAE encode will change with every generation.
         torch     .manual_seed    (42)          
-        torch.cuda.manual_seed_all(42)
+        manual_seed_all(42)
 
         image_1 = image_1.clone() if image_1 is not None else None
         image_2 = image_2.clone() if image_2 is not None else None
@@ -353,7 +354,7 @@ class VAEStyleTransferLatent:
         # this is unfortunately required to avoid apparent non-deterministic outputs. 
         # without setting the seed each time, the outputs of the VAE encode will change with every generation.
         torch     .manual_seed    (42)          
-        torch.cuda.manual_seed_all(42)
+        manual_seed_all(42)
         
         denoised = latent   .get('state_info', {}).get('raw_x')
         y0       = style_ref.get('state_info', {}).get('raw_x')
@@ -434,9 +435,7 @@ def apply_style_to_latent(denoised_embed, y0_embed, method="WCT"):
         mu_s = f_s.mean(dim=0, keepdim=True)
         f_s_centered = f_s - mu_s
         
-        cov = (f_s_centered.transpose(-2,-1).double() @ f_s_centered.double()) / (f_s_centered.size(0) - 1)
-
-        S_eig, U_eig = torch.linalg.eigh(cov + 1e-5 * torch.eye(cov.size(0), dtype=cov.dtype, device=cov.device))
+        S_eig, U_eig = whitening_eigh(f_s_centered)
         S_eig_sqrt    = S_eig.clamp(min=0).sqrt() # eigenvalues -> singular values
         
         whiten = U_eig @ torch.diag(S_eig_sqrt) @ U_eig.transpose(-2,-1)
@@ -447,9 +446,7 @@ def apply_style_to_latent(denoised_embed, y0_embed, method="WCT"):
             mu_c         = f_c.mean(dim=0, keepdim=True)
             f_c_centered = f_c - mu_c
             
-            cov = (f_c_centered.transpose(-2,-1).double() @ f_c_centered.double()) / (f_c_centered.size(0) - 1)
-
-            S_eig, U_eig  = torch.linalg.eigh(cov + 1e-5 * torch.eye(cov.size(0), dtype=cov.dtype, device=cov.device))
+            S_eig, U_eig = whitening_eigh(f_c_centered)
             inv_sqrt_eig  = S_eig.clamp(min=0).rsqrt() 
             
             whiten = U_eig @ torch.diag(inv_sqrt_eig) @ U_eig.transpose(-2,-1)
@@ -473,6 +470,9 @@ def invert_conv2d(
 ) -> torch.Tensor:
     import torch.nn.functional as F
 
+    if z.device.type == "xpu":
+        z = z.float()
+
     B, C_in, H, W = original_shape
     C_out, _, kH, kW = conv.weight.shape
     stride_h, stride_w = conv.stride
@@ -485,7 +485,7 @@ def invert_conv2d(
         z_nobias = z
 
     W_flat = conv.weight.view(C_out, -1).to(z)  
-    W_pinv = torch.linalg.pinv(W_flat)    
+    W_pinv = pinv(W_flat)    
 
     Bz, Co, Hp, Wp = z_nobias.shape
     z_flat = z_nobias.reshape(Bz, Co, -1)  
@@ -549,7 +549,7 @@ def invert_conv2d(
     out_ch, in_ch, kH, kW = w2.shape
     
     W_flat = w2.view(out_ch, -1)            # [C_out, in_ch*pH*pW]
-    W_pinv = torch.linalg.pinv(W_flat)      # [in_ch*pH*pW, C_out]
+    W_pinv = pinv(W_flat)                   # [in_ch*pH*pW, C_out]
 
     # merge depth for 2D unfold wackiness
     z2 = z_nobias.permute(0,2,1,3,4).reshape(B*Dp, C_out, Hp, Wp)
@@ -650,7 +650,7 @@ class LatentUpscaleWithVAE:
         # this is unfortunately required to avoid apparent non-deterministic outputs. 
         # without setting the seed each time, the outputs of the VAE encode will change with every generation.
         torch     .manual_seed    (42)          
-        torch.cuda.manual_seed_all(42)
+        manual_seed_all(42)
         
         images_prev_list, latent_prev_list = [], []
         

@@ -13,6 +13,7 @@ import io
 import pickle # used strictly for serializing conditioning in the ConditioningToBase64 and Base64ToConditioning nodes for API use. (Offloading T5 processing to another machine to avoid model shuffling.)
 
 import comfy.supported_models
+from .device_utils import get_torch_device
 import node_helpers
 import gc
 
@@ -1197,7 +1198,7 @@ class ClownRegionalConditioning_AB:
                                 ) -> Tuple[Tensor]:
 
         default_dtype  = torch.float64
-        default_device = torch.device("cuda") 
+        default_device = get_torch_device()
         
         if end_step == -1:
             end_step = MAX_STEPS
@@ -1424,7 +1425,7 @@ class ClownRegionalConditioning_ABC:
                                 ) -> Tuple[Tensor]:
 
         default_dtype  = torch.float64
-        default_device = torch.device("cuda") 
+        default_device = get_torch_device()
         
         if end_step == -1:
             end_step = MAX_STEPS
@@ -1761,7 +1762,7 @@ class ClownRegionalConditionings:
                                 ) -> Tuple[Tensor]:
 
         default_dtype  = torch.float64
-        default_device = torch.device("cuda") 
+        default_device = get_torch_device()
         
         cond_list               = [region['conditioning']       for region in cond_regions]
         mask_list               = [region['mask']               for region in cond_regions]
@@ -2052,8 +2053,4 @@ class CrossAttn_EraseReplace_Flux:
         encoded_replace = clip.encode_from_tokens_scheduled(tokens_replace)
         
         return (encoded_replace, encoded_erase, )
-
-
-
-
 

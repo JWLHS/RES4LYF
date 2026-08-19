@@ -14,6 +14,7 @@ from einops import rearrange, repeat
 from comfy.ldm.modules.diffusionmodules.util import timestep_embedding
 import comfy.ops
 import comfy.ldm.common_dit
+from ..device_utils import pinv, whitening_eigh
 
 from ..helper import ExtraOptions
 
@@ -1462,6 +1463,12 @@ class MMDiT(nn.Module):
             x   = x_orig.to(torch.float64)
             eps = eps.to(torch.float64)
             eps_orig = eps.clone()
+            if y0_style_pos.device.type == "xpu":
+                # XPU has no fp64 support: run the retrojector math in fp32
+                y0_style_pos = y0_style_pos.float()
+                x            = x.float()
+                eps          = eps.float()
+                eps_orig     = eps_orig.float()
             
             sigma = SIGMA# t_orig[0].to(torch.float64) / 1000
             denoised = x - sigma * eps
@@ -1472,7 +1479,7 @@ class MMDiT(nn.Module):
             
             W_conv = self.x_embedder.proj.weight.to(torch.float64)  # [1536, 16, 2, 2]
             W_flat = W_conv.view(features, -1).to(torch.float64)    # [1536, 64]
-            W_pinv = torch.linalg.pinv(W_flat)            # [64, 1536]
+            W_pinv = pinv(W_flat)                        # [64, 1536]
 
             x_embedder64 = copy.deepcopy(self.x_embedder.proj).to(denoised)
 
@@ -1483,6 +1490,8 @@ class MMDiT(nn.Module):
             y_flat = y_flat.permute(0, 2, 1)                # [B, N, 1536]
 
             bias = self.x_embedder.proj.bias.to(torch.float64)               # [1536]
+            if y0_style_pos.device.type == "xpu":
+                bias = bias.float()
             denoised_embed = y_flat - bias.view(1, 1, -1)
 
 
@@ -1496,6 +1505,8 @@ class MMDiT(nn.Module):
             y_flat = y_flat.permute(0, 2, 1)                # [B, N   , 1536]
 
             bias = self.x_embedder.proj.bias.to(torch.float64)              # [1536]
+            if y0_style_pos.device.type == "xpu":
+                bias = bias.float()
             y0_adain_embed = y_flat - bias.view(1, 1, -1)
 
 
@@ -1507,7 +1518,7 @@ class MMDiT(nn.Module):
                 denoised_embed = adain_seq_inplace(denoised_embed, y0_adain_embed)
                 """for adain_iter in range(EO("style_iter", 0)):
                     denoised_embed = adain_seq_inplace(denoised_embed, y0_adain_embed)
-                    denoised_embed = (denoised_embed - b) @ torch.linalg.pinv(W.to(pinv_dtype)).T.to(dtype)       #  not going to work! needs 
+                    denoised_embed = (denoised_embed - b) @ pinv(W.to(pinv_dtype)).T.to(dtype)       #  not going to work! needs 
                     denoised_embed = F.linear(denoised_embed         .to(W), W, b).to(img)
                     denoised_embed = adain_seq_inplace(denoised_embed, y0_adain_embed)"""
 
@@ -1519,9 +1530,7 @@ class MMDiT(nn.Module):
                     self.mu_s    = f_s.mean(dim=0, keepdim=True)
                     f_s_centered = f_s - self.mu_s
                     
-                    cov = (f_s_centered.T.double() @ f_s_centered.double()) / (f_s_centered.size(0) - 1)
-
-                    S_eig, U_eig = torch.linalg.eigh(cov + 1e-5 * torch.eye(cov.size(0), dtype=cov.dtype, device=cov.device))
+                    S_eig, U_eig = whitening_eigh(f_s_centered)
                     S_eig_sqrt    = S_eig.clamp(min=0).sqrt() # eigenvalues -> singular values
                     
                     whiten = U_eig @ torch.diag(S_eig_sqrt) @ U_eig.T
@@ -1532,9 +1541,7 @@ class MMDiT(nn.Module):
                     mu_c         = f_c.mean(dim=0, keepdim=True)
                     f_c_centered = f_c - mu_c
                     
-                    cov = (f_c_centered.T.double() @ f_c_centered.double()) / (f_c_centered.size(0) - 1)
-
-                    S_eig, U_eig  = torch.linalg.eigh(cov + 1e-5 * torch.eye(cov.size(0), dtype=cov.dtype, device=cov.device))
+                    S_eig, U_eig = whitening_eigh(f_c_centered)
                     inv_sqrt_eig  = S_eig.clamp(min=0).rsqrt() 
                     
                     whiten = U_eig @ torch.diag(inv_sqrt_eig) @ U_eig.T
@@ -1589,6 +1596,12 @@ class MMDiT(nn.Module):
             x   = x_orig.to(torch.float64)
             eps = eps.to(torch.float64)
             eps_orig = eps.clone()
+            if y0_style_neg.device.type == "xpu":
+                # XPU has no fp64 support: run the retrojector math in fp32
+                y0_style_neg = y0_style_neg.float()
+                x            = x.float()
+                eps          = eps.float()
+                eps_orig     = eps_orig.float()
             
             sigma = SIGMA# t_orig[0].to(torch.float64) / 1000
             denoised = x - sigma * eps
@@ -1599,7 +1612,7 @@ class MMDiT(nn.Module):
             
             W_conv = self.x_embedder.proj.weight.float()  # [1536, 16, 2, 2]
             W_flat = W_conv.view(features, -1).float()    # [1536, 64]
-            W_pinv = torch.linalg.pinv(W_flat)            # [64, 1536]
+            W_pinv = pinv(W_flat)                        # [64, 1536]
 
 
 
@@ -1628,7 +1641,7 @@ class MMDiT(nn.Module):
                 denoised_embed = adain_seq_inplace(denoised_embed, y0_adain_embed)
                 """for adain_iter in range(EO("style_iter", 0)):
                     denoised_embed = adain_seq_inplace(denoised_embed, y0_adain_embed)
-                    denoised_embed = (denoised_embed - b) @ torch.linalg.pinv(W.to(pinv_dtype)).T.to(dtype)
+                    denoised_embed = (denoised_embed - b) @ pinv(W.to(pinv_dtype)).T.to(dtype)
                     denoised_embed = F.linear(denoised_embed         .to(W), W, b).to(img)
                     denoised_embed = adain_seq_inplace(denoised_embed, y0_adain_embed)"""
 
@@ -1640,9 +1653,7 @@ class MMDiT(nn.Module):
                     self.mu_s    = f_s.mean(dim=0, keepdim=True)
                     f_s_centered = f_s - self.mu_s
                     
-                    cov = (f_s_centered.T.double() @ f_s_centered.double()) / (f_s_centered.size(0) - 1)
-
-                    S_eig, U_eig = torch.linalg.eigh(cov + 1e-5 * torch.eye(cov.size(0), dtype=cov.dtype, device=cov.device))
+                    S_eig, U_eig = whitening_eigh(f_s_centered)
                     S_eig_sqrt    = S_eig.clamp(min=0).sqrt() # eigenvalues -> singular values
                     
                     whiten = U_eig @ torch.diag(S_eig_sqrt) @ U_eig.T
@@ -1653,9 +1664,7 @@ class MMDiT(nn.Module):
                     mu_c         = f_c.mean(dim=0, keepdim=True)
                     f_c_centered = f_c - mu_c
                     
-                    cov = (f_c_centered.T.double() @ f_c_centered.double()) / (f_c_centered.size(0) - 1)
-
-                    S_eig, U_eig  = torch.linalg.eigh(cov + 1e-5 * torch.eye(cov.size(0), dtype=cov.dtype, device=cov.device))
+                    S_eig, U_eig = whitening_eigh(f_c_centered)
                     inv_sqrt_eig  = S_eig.clamp(min=0).rsqrt() 
                     
                     whiten = U_eig @ torch.diag(inv_sqrt_eig) @ U_eig.T

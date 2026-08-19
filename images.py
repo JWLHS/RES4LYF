@@ -13,6 +13,8 @@ import cv2
 
 from PIL import Image, ImageFilter, ImageEnhance
 
+from .device_utils import get_torch_device
+
 import comfy
 
 # tensor -> PIL
@@ -336,7 +338,7 @@ class Film_Grain:
         for i in range(img_batch.shape[0]):
             img = img_batch[i].unsqueeze(0)
             img = tensor2pil(img)
-            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            device = get_torch_device()
         
             # apply grayscale noise with specified density/intensity/highlights to PIL image
             img_gray = img.convert('L')
@@ -408,7 +410,7 @@ class Image_Grain_Add:
         for i in range(img_batch.shape[0]):
             img = img_batch[i].unsqueeze(0)
             img = tensor2pil(img)
-            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            device = get_torch_device()
         
             # apply grayscale noise with specified density/intensity/highlights to PIL image
             img_gray = img.convert('L')
@@ -469,10 +471,10 @@ class Frequency_Separation_Hard_Light:
     def main(self, high_pass=None, original=None, low_pass=None):
 
         if high_pass is None:
-            high_pass = hard_light_freq_sep(original.to(torch.float64).to('cuda'), low_pass.to(torch.float64).to('cuda'))
+            high_pass = hard_light_freq_sep(original.to(torch.float64).to(get_torch_device()), low_pass.to(torch.float64).to(get_torch_device()))
         
         if original is None:
-            original = hard_light_blend(low_pass.to(torch.float64).to('cuda'), high_pass.to(torch.float64).to('cuda'))
+            original = hard_light_blend(low_pass.to(torch.float64).to(get_torch_device()), high_pass.to(torch.float64).to(get_torch_device()))
 
         return (high_pass, original, low_pass,)
 
@@ -698,10 +700,10 @@ class Frequency_Separation_Linear_Light:
     def main(self, high_pass=None, original=None, low_pass=None):
 
         if high_pass is None:
-            high_pass = linear_light_freq_sep(original.to(torch.float64).to('cuda'), low_pass.to(torch.float64).to('cuda'))
+            high_pass = linear_light_freq_sep(original.to(torch.float64).to(get_torch_device()), low_pass.to(torch.float64).to(get_torch_device()))
         
         if original is None:
-            original = linear_light_blend(low_pass.to(torch.float64).to('cuda'), high_pass.to(torch.float64).to('cuda'))
+            original = linear_light_blend(low_pass.to(torch.float64).to(get_torch_device()), high_pass.to(torch.float64).to(get_torch_device()))
 
         return (high_pass, original, low_pass,)
 
@@ -846,7 +848,7 @@ class ImageGaussianBlur:
 
 
 def fast_smudge_blur_comfyui(img, kernel_size=51):
-    img = img.to('cuda').float()
+    img = img.to(get_torch_device()).float()
 
     # (b, h, w, c) to (b, c, h, w)
     img = img.permute(0, 3, 1, 2)
@@ -885,7 +887,7 @@ class FastSmudgeBlur:
     CATEGORY     = "RES4LYF/images"
 
     def main(self, images, kernel_size):
-        img = images.clone().detach().to('cuda').float()
+        img = images.clone().detach().to(get_torch_device()).float()
         
         # (b, h, w, c) to (b, c, h, w)
         img = img.permute(0, 3, 1, 2)
@@ -1590,5 +1592,4 @@ class MaskBoundingBoxAspectRatio:
             final_w,
             final_h,
         )
-
 

@@ -18,6 +18,7 @@ from ..latents              import lagrange_interpolation, get_collinear, get_or
                                    is_packed_latent, get_latent, apply_per_step_latent_normalization, LatentHandler, \
                                    derive_old_latent_shapes, extract_video_tail, extend_state_info_tensors
 from ..style_transfer       import apply_scattersort_spatial, apply_adain_spatial
+from ..device_utils         import is_gpu_available, reset_peak_memory_stats, max_memory_allocated, max_memory_reserved, get_total_memory, set_memory_fraction
 
 from .rk_method_beta        import RK_Method_Beta
 from .rk_noise_sampler_beta import RK_NoiseSampler
@@ -261,22 +262,22 @@ def sample_rk_beta(
     default_dtype  = EO("default_dtype", torch.float64)
     work_dtype     = EO("work_dtype",    torch.float32)
 
-    REPORT_VRAM    = EO("report_vram") and torch.cuda.is_available()
+    REPORT_VRAM    = EO("report_vram") and is_gpu_available()
     if REPORT_VRAM:
-        torch.cuda.reset_peak_memory_stats()
+        reset_peak_memory_stats()
 
     # vram_cap_gb=N caps the CUDA allocator so OOM reproduces deterministically — headroom flags
     # like --reserve-vram get absorbed by ComfyUI's weight paging instead of failing
     global _VRAM_CAP_SET
     vram_cap_gb    = EO("vram_cap_gb", 0.0)
-    if torch.cuda.is_available():
+    if is_gpu_available():
         if vram_cap_gb > 0:
-            total_vram = torch.cuda.get_device_properties(0).total_memory
-            torch.cuda.set_per_process_memory_fraction(min(1.0, vram_cap_gb * 1024**3 / total_vram))
+            total_vram = get_total_memory()
+            set_memory_fraction(min(1.0, vram_cap_gb * 1024**3 / total_vram))
             RESplain(f"vram_cap_gb: capping allocator at {vram_cap_gb} GB of {total_vram / 1024**3:.1f} GB", debug=False)
             _VRAM_CAP_SET = True
         elif _VRAM_CAP_SET:
-            torch.cuda.set_per_process_memory_fraction(1.0)
+            set_memory_fraction(1.0)
             _VRAM_CAP_SET = False
 
     extra_args     = {} if extra_args     is None else extra_args
@@ -2282,8 +2283,8 @@ def sample_rk_beta(
             state_info_out['data_x_prev_'] = data_x_prev_.to('cpu')
 
     if REPORT_VRAM:
-        RESplain(f"report_vram: peak allocated {torch.cuda.max_memory_allocated() / 1024**3:.2f} GB, "
-                 f"peak reserved {torch.cuda.max_memory_reserved() / 1024**3:.2f} GB (torch allocator only; model weights under dynamic VRAM are not included)", debug=False)
+        RESplain(f"report_vram: peak allocated {max_memory_allocated() / 1024**3:.2f} GB, "
+                 f"peak reserved {max_memory_reserved() / 1024**3:.2f} GB (torch allocator only; model weights under dynamic VRAM are not included)", debug=False)
 
     return x
 
@@ -2404,4 +2405,3 @@ def preview_callback(
         callback({'x': x, 'i': step, 'i_sched': step if step_sched is None else step_sched, 'final': final, 'sigma': sigma, 'sigma_next': sigma_next, 'denoised': denoised_callback.to(torch.float32)})
 
     return
-

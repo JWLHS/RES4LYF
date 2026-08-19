@@ -11,6 +11,7 @@ import comfy.model_patcher
 import comfy.supported_models
 
 from .noise_classes import NOISE_GENERATOR_CLASSES, NOISE_GENERATOR_CLASSES_SIMPLE
+from ..device_utils import get_torch_device
 from .constants     import MAX_STEPS
 
 from ..helper       import ExtraOptions, has_nested_attr 
@@ -52,12 +53,12 @@ class RK_NoiseSampler:
                 RK            : Union["RK_Method_Exponential", "RK_Method_Linear"],
                 model,
                 step          : int=0,
-                device        : str='cuda',
+                device                 = None,
                 dtype         : torch.dtype=torch.float64,
                 extra_options : str=""
                 ):
         
-        self.device                 = device
+        self.device                 = device if device is not None else get_torch_device()
         self.dtype                  = dtype
         
         self.model                  = model
@@ -939,7 +940,6 @@ def extract_latent_swap_noise(self, x:Tensor, x_noise_swapped:Tensor, sigma:Tens
 
 def update_latent_swap_noise(self, x:Tensor, sigma:Tensor, old_noise:Tensor, new_noise:Tensor) -> Tensor:
     return x + sigma * (new_noise - old_noise)
-
 
 
 

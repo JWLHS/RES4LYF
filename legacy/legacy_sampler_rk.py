@@ -14,6 +14,7 @@ from .deis_coefficients import get_deis_coeff_list
 from .latents import hard_light_blend
 
 from .noise_sigmas_timesteps_scaling import get_res4lyf_step_with_model, get_res4lyf_half_step3
+from ..device_utils import get_torch_device, empty_cache
 
 
 def get_epsilon(model, x, sigma, **extra_args):
@@ -624,12 +625,12 @@ def get_rk_methods(rk_type, h, c1=0.0, c2=0.5, c3=1.0, h_prev=None, h_prev2=None
     return ab, ci, multistep_stages, model_call, alpha_fn, t_fn, sigma_fn, h_fn, FSAL, EPS_PRED
 
 def get_rk_methods_order(rk_type):
-    ab, ci, multistep_stages, model_call, alpha_fn, t_fn, sigma_fn, h_fn, FSAL, EPS_PRED = get_rk_methods(rk_type, torch.tensor(1.0).to('cuda').to(torch.float64), c1=0.0, c2=0.5, c3=1.0)
+    ab, ci, multistep_stages, model_call, alpha_fn, t_fn, sigma_fn, h_fn, FSAL, EPS_PRED = get_rk_methods(rk_type, torch.tensor(1.0).to(get_torch_device()).to(torch.float64), c1=0.0, c2=0.5, c3=1.0)
     return len(ci)-1
 
 def get_rk_methods_order_and_fn(rk_type, h=None, c1=None, c2=None, c3=None, h_prev=None, h_prev2=None, stepcount=0, sigmas=None):
     if h == None:
-        ab, ci, multistep_stages, model_call, alpha_fn, t_fn, sigma_fn, h_fn, FSAL, EPS_PRED = get_rk_methods(rk_type, torch.tensor(1.0).to('cuda').to(torch.float64), c1=0.0, c2=0.5, c3=1.0)
+        ab, ci, multistep_stages, model_call, alpha_fn, t_fn, sigma_fn, h_fn, FSAL, EPS_PRED = get_rk_methods(rk_type, torch.tensor(1.0).to(get_torch_device()).to(torch.float64), c1=0.0, c2=0.5, c3=1.0)
     else:
         ab, ci, multistep_stages, model_call, alpha_fn, t_fn, sigma_fn, h_fn, FSAL, EPS_PRED = get_rk_methods(rk_type, h, c1, c2, c3, h_prev, h_prev2, stepcount, sigmas)
     return len(ci)-1, model_call, alpha_fn, t_fn, sigma_fn, h_fn, FSAL, EPS_PRED
@@ -864,7 +865,7 @@ def legacy_sample_rk(model, x, sigmas, extra_args=None, callback=None, disable=N
                     xi[(i+1)%order]  = (1-lgw_mask_inv) * xi[(i+1)%order]   + UNSAMPLE * lgw_mask_inv  * (alpha_t_1_inv * (xi_0 + cfgpp_term)    +      (1 - alpha_t_1_inv) * ys_inv )
 
                 if (i+1)%order > 0 and (i+1)%order > multistep_stages-1:
-                    if GARBAGE_COLLECT: gc.collect(); torch.cuda.empty_cache()
+                    if GARBAGE_COLLECT: gc.collect(); empty_cache()
                     ki[i+1]   = model_call(model, xi[i+1], sigma_fn(t + h*ci[i+1]), **extra_args)
                     if EPS_PRED and rk_type.startswith("deis"):
                         ki[i+1] = (xi[i+1] - ki[i+1]) / sigma_fn(t + h*ci[i+1])
@@ -933,4 +934,3 @@ def legacy_sample_rk(model, x, sigmas, extra_args=None, callback=None, disable=N
         h_prev = h
         
     return xi[0]
-

@@ -9,6 +9,7 @@ import copy
 from comfy.samplers import SCHEDULER_NAMES
 
 from .res4lyf import RESplain
+from .device_utils import pinv
 
 
 
@@ -863,7 +864,10 @@ class FrameWeightsManager:
     
     
 def check_projection_consistency(x, W, b):
-    W_pinv = torch.linalg.pinv(W.T)
+    W_pinv = pinv(W.T)
+    if x.device.type == "xpu":
+        x = x.float()
+        b = b.float()
     x_proj = (x - b) @ W_pinv     
     x_recon = x_proj @ W.T + b   
     error = torch.norm(x - x_recon)

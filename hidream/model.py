@@ -11,6 +11,7 @@ import einops
 from einops import repeat, rearrange
 
 from comfy.ldm.lightricks.model import TimestepEmbedding, Timesteps
+from ..device_utils import get_torch_device
 import torch.nn.functional as F
 
 from comfy.ldm.flux.math import apply_rope, rope
@@ -832,7 +833,7 @@ class HDModel(nn.Module):
                 mask = None
                 if not UNCOND and 'AttnMask' in transformer_options: # and weight != 0:
                     AttnMask = transformer_options['AttnMask']
-                    mask = transformer_options['AttnMask'].attn_mask.mask.to('cuda')
+                    mask = transformer_options['AttnMask'].attn_mask.mask.to(get_torch_device())
                     if mask_zero is None:
                         mask_zero = torch.ones_like(mask)
                         #img_len = transformer_options['AttnMask'].img_len
@@ -849,7 +850,7 @@ class HDModel(nn.Module):
 
                 if UNCOND and 'AttnMask_neg' in transformer_options: # and weight != 0:
                     AttnMask = transformer_options['AttnMask_neg']
-                    mask = transformer_options['AttnMask_neg'].attn_mask.mask.to('cuda')
+                    mask = transformer_options['AttnMask_neg'].attn_mask.mask.to(get_torch_device())
                     if mask_zero is None:
                         mask_zero = torch.ones_like(mask)
                         img_len = transformer_options['AttnMask_neg'].img_len
@@ -867,7 +868,7 @@ class HDModel(nn.Module):
 
                 elif UNCOND and 'AttnMask' in transformer_options:
                     AttnMask = transformer_options['AttnMask']
-                    mask = transformer_options['AttnMask'].attn_mask.mask.to('cuda')
+                    mask = transformer_options['AttnMask'].attn_mask.mask.to(get_torch_device())
                     
                     if mask_zero is None:
                         mask_zero = torch.ones_like(mask)
@@ -1483,7 +1484,6 @@ def apply_mod(tensor, m_mult, m_add=None, modulation_dims=None):
             if m_add is not None:
                 tensor[:, d[0]:d[1]] += m_add[:, d[2]]
         return tensor
-
 
 
 

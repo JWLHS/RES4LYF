@@ -13,6 +13,7 @@ import torch
 import math
 
 from nodes import MAX_RESOLUTION
+from .device_utils import get_torch_device
 #MAX_RESOLUTION=8192
 
 from .helper             import ExtraOptions, initialize_or_scale, extra_options_flag, get_extra_options_list, extract_cond_from_guider
@@ -717,14 +718,14 @@ class latent_to_cuda:
 
     def _resolve_device(self, to_cuda):
         if isinstance(to_cuda, bool):
-            return "cuda" if to_cuda else "cpu"
+            return get_torch_device() if to_cuda else torch.device("cpu")
         if isinstance(to_cuda, str):
             normalized = to_cuda.strip().lower()
-            if normalized in {"true", "cuda", "gpu"}:
-                return "cuda"
+            if normalized in {"true", "cuda", "gpu", "xpu"}:
+                return get_torch_device()
             if normalized in {"false", "cpu"}:
-                return "cpu"
-        raise ValueError("to_cuda must be a boolean or one of ['cuda', 'cpu']")
+                return torch.device("cpu")
+        raise ValueError("to_cuda must be a boolean or one of ['cuda', 'xpu', 'cpu']")
 
     def _move_structure(self, value, device):
         if torch.is_tensor(value):

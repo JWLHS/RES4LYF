@@ -6,6 +6,7 @@ from torch import Tensor, nn
 from typing import Optional, Callable, Tuple, Dict, List, Any, Union
 
 from ..helper import ExtraOptions
+from ..device_utils import get_torch_device
 
 from dataclasses import dataclass
 import copy
@@ -136,7 +137,7 @@ class ReFlux(Flux):
         
         if not UNCOND and 'AttnMask' in transformer_options: 
             AttnMask = transformer_options['AttnMask']
-            mask = transformer_options['AttnMask'].attn_mask.mask.to('cuda')
+            mask = transformer_options['AttnMask'].attn_mask.mask.to(get_torch_device())
             if mask_zero is None:
                 mask_zero = torch.ones_like(mask)
                 img_len = transformer_options['AttnMask'].img_len
@@ -147,7 +148,7 @@ class ReFlux(Flux):
             
         if UNCOND and 'AttnMask_neg' in transformer_options: 
             AttnMask = transformer_options['AttnMask_neg']
-            mask = transformer_options['AttnMask_neg'].attn_mask.mask.to('cuda')
+            mask = transformer_options['AttnMask_neg'].attn_mask.mask.to(get_torch_device())
             if mask_zero is None:
                 mask_zero = torch.ones_like(mask)
                 img_len = transformer_options['AttnMask_neg'].img_len
@@ -158,7 +159,7 @@ class ReFlux(Flux):
             
         elif UNCOND and 'AttnMask' in transformer_options:
             AttnMask = transformer_options['AttnMask']
-            mask = transformer_options['AttnMask'].attn_mask.mask.to('cuda')
+            mask = transformer_options['AttnMask'].attn_mask.mask.to(get_torch_device())
             if mask_zero is None:
                 mask_zero = torch.ones_like(mask)
                 img_len = transformer_options['AttnMask'].img_len
@@ -393,7 +394,7 @@ class ReFlux(Flux):
                 mask = None
                 if not UNCOND and 'AttnMask' in transformer_options: # and weight != 0:
                     AttnMask = transformer_options['AttnMask']
-                    mask = transformer_options['AttnMask'].attn_mask.mask.to('cuda')
+                    mask = transformer_options['AttnMask'].attn_mask.mask.to(get_torch_device())
                     if mask_zero is None:
                         mask_zero = torch.ones_like(mask)
                         mask_zero[txt_slice, txt_slice] = mask[txt_slice, txt_slice]
@@ -406,7 +407,7 @@ class ReFlux(Flux):
 
                 if UNCOND and 'AttnMask_neg' in transformer_options: # and weight != 0:
                     AttnMask = transformer_options['AttnMask_neg']
-                    mask = transformer_options['AttnMask_neg'].attn_mask.mask.to('cuda')
+                    mask = transformer_options['AttnMask_neg'].attn_mask.mask.to(get_torch_device())
                     if mask_zero is None:
                         mask_zero = torch.ones_like(mask)
                         mask_zero[txt_slice, txt_slice] = mask[txt_slice, txt_slice]
@@ -419,7 +420,7 @@ class ReFlux(Flux):
 
                 elif UNCOND and 'AttnMask' in transformer_options:
                     AttnMask = transformer_options['AttnMask']
-                    mask = transformer_options['AttnMask'].attn_mask.mask.to('cuda')
+                    mask = transformer_options['AttnMask'].attn_mask.mask.to(get_torch_device())
                     
                     if mask_zero is None:
                         mask_zero = torch.ones_like(mask)
@@ -964,6 +965,5 @@ def clone_inputs(*args, index: int=None):
         return tuple(x.clone() for x in args)
     else:
         return tuple(x[index].unsqueeze(0).clone() for x in args)
-
 
 
