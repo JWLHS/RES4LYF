@@ -18,7 +18,7 @@ from ..latents              import lagrange_interpolation, get_collinear, get_or
                                    is_packed_latent, get_latent, apply_per_step_latent_normalization, LatentHandler, \
                                    derive_old_latent_shapes, extract_video_tail, extend_state_info_tensors
 from ..style_transfer       import apply_scattersort_spatial, apply_adain_spatial
-from ..device_utils         import is_gpu_available, reset_peak_memory_stats, max_memory_allocated, max_memory_reserved, get_total_memory, set_memory_fraction
+from ..device_utils         import is_gpu_available, reset_peak_memory_stats, max_memory_allocated, max_memory_reserved, get_total_memory, set_memory_fraction, safe_dtype
 
 from .rk_method_beta        import RK_Method_Beta
 from .rk_noise_sampler_beta import RK_NoiseSampler
@@ -259,7 +259,7 @@ def sample_rk_beta(
     #   noise_dtype: the dtype noise is generated at — decides which noise realization a seed
     #       produces (torch's RNG stream differs per dtype), independent of the math precision.
     EO             = ExtraOptions(extra_options)
-    default_dtype  = EO("default_dtype", torch.float64)
+    default_dtype  = safe_dtype(EO("default_dtype", torch.float64))
     work_dtype     = EO("work_dtype",    torch.float32)
 
     REPORT_VRAM    = EO("report_vram") and is_gpu_available()

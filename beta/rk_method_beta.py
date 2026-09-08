@@ -11,7 +11,7 @@ from .phi_functions        import Phi
 from .rk_coefficients_beta import get_implicit_sampler_name_list, get_rk_methods_beta
 from ..helper              import ExtraOptions
 from ..latents             import get_orthogonal, get_collinear, get_cosine_similarity, tile_latent, untile_latent
-from ..device_utils        import get_torch_device
+from ..device_utils        import get_torch_device, safe_dtype
 
 from ..res4lyf             import RESplain, is_debug_logging_enabled
 
@@ -41,6 +41,7 @@ class RK_Method_Beta:
                 extra_options         : str         = ""
                 ):
         
+        dtype                            = safe_dtype(dtype)
         self.work_device                 = work_device
         self.model_device                = model_device if model_device is not None else get_torch_device()
         self.dtype                       : torch.dtype = dtype

@@ -30,6 +30,17 @@ def get_device_type(device=None):
     return (device if device is not None else get_torch_device()).type
 
 
+def safe_dtype(dtype, device=None):
+    """Clamp unsupported dtypes for the active backend.
+
+    XPU has no fp64 compute support, so float64 requests are mapped to
+    float32 while CUDA/CPU keep their original precision.
+    """
+    if dtype == torch.float64 and get_device_type(device) == "xpu":
+        return torch.float32
+    return dtype
+
+
 def is_gpu_available():
     """True when a non-CPU compute device is in use."""
     return get_torch_device().type != "cpu"

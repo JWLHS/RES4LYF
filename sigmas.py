@@ -12,7 +12,7 @@ import math
 
 from comfy.k_diffusion.sampling import get_sigmas_polyexponential, get_sigmas_karras
 import comfy.samplers
-from .device_utils import get_torch_device
+from .device_utils import get_torch_device, safe_dtype
 
 from torch import Tensor, nn
 from typing import Optional, Callable, Tuple, Dict, Any, Union, TYPE_CHECKING, TypeVar
@@ -55,9 +55,10 @@ class set_precision_sigmas:
                     torch.set_default_dtype(torch.float32)
                 sigmas = sigmas.to(torch.float32)
             case "64":
+                dtype64 = safe_dtype(torch.float64)
                 if set_default is True:
-                    torch.set_default_dtype(torch.float64)
-                sigmas = sigmas.to(torch.float64)
+                    torch.set_default_dtype(dtype64)
+                sigmas = sigmas.to(dtype64)
         return (sigmas, )
 
 
@@ -1325,7 +1326,7 @@ class ClownScheduler:
                                             flip_schedule   = flip_schedule,
                                             )
         else:
-            default_dtype  = torch.float64
+            default_dtype  = safe_dtype(torch.float64)
             default_device = get_torch_device()
             
             if scheduler_end_step == -1:
@@ -1370,7 +1371,7 @@ class ClownScheduler:
                                 flip_schedule            = False,
                                 ) -> Tuple[Tensor]:
 
-        default_dtype  = torch.float64
+        default_dtype  = safe_dtype(torch.float64)
         default_device = get_torch_device()
         
         return (None,)

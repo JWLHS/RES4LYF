@@ -21,6 +21,7 @@ from ..latents       import normalize_zscore, get_collinear, get_orthogonal, get
 
 from .rk_method_beta import RK_Method_Beta
 from .constants      import MAX_STEPS
+from ..device_utils  import safe_dtype
 from ..res4lyf       import RESplain, is_debug_logging_enabled
 
 import comfy.utils
@@ -88,6 +89,7 @@ class LatentGuide:
                 latent_shapes        : list = None,
                 ):
 
+        dtype                         = safe_dtype(dtype)
         self.dtype                    = dtype
         self.device                   = device
         self.model                    = model

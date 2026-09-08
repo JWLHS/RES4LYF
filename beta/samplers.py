@@ -11,7 +11,7 @@ import comfy.sample
 import comfy.supported_models
 import comfy.utils
 import comfy.nested_tensor
-from ..device_utils import get_torch_device
+from ..device_utils import get_torch_device, safe_dtype
 import comfy.patcher_extension
 from comfy.samplers import CFGGuider, sampling_function
 
@@ -77,9 +77,9 @@ def generate_init_noise(x, seed, noise_type_init, noise_stdev, noise_mean, noise
     # generate and normalize at noise_dtype: a seed's realization must not depend on work_dtype
     out_dtype = x.dtype
     if EO is not None:
-        noise_dtype = EO("noise_dtype", EO("default_dtype", torch.float64, debugMode=2), debugMode=2)
+        noise_dtype = safe_dtype(EO("noise_dtype", EO("default_dtype", torch.float64, debugMode=2), debugMode=2))
     else:
-        noise_dtype = torch.float64
+        noise_dtype = safe_dtype(torch.float64)
     x = x.to(noise_dtype)
 
     if EO is not None and EO("bypass_noise_norm") and noise_type_init == "gaussian":
@@ -251,7 +251,7 @@ class SharkSampler:
                         
             extra_options  += "\n" + options_mgr.get('extra_options', "")
             EO              = ExtraOptions(extra_options)
-            default_dtype   = EO("default_dtype", torch.float64)
+            default_dtype   = safe_dtype(EO("default_dtype", torch.float64))
             work_dtype      = EO("work_dtype",    torch.float32)   # latent-sized tensors; sigmas stay at default_dtype
             default_device  = EO("work_device", str(get_torch_device()))
             
@@ -1352,7 +1352,7 @@ class ClownSamplerAdvanced_Beta(io.ComfyNode):
             options_mgr = OptionsManager(options_group=options_group, **kwargs)
             extra_options    += "\n" + options_mgr.get('extra_options', "")
             EO = ExtraOptions(extra_options)
-            default_dtype = EO("default_dtype", torch.float64)
+            default_dtype = safe_dtype(EO("default_dtype", torch.float64))
 
     
     

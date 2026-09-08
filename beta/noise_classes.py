@@ -47,7 +47,10 @@ class PrecisionTool:
             def cast_and_move_to_device(data):
                 if torch.is_tensor(data):
                     if self.cast_type == 'fp64':
-                        return data.to(torch.float64).to(target_device)
+                        target_dtype = torch.float64
+                        if getattr(target_device, "type", None) == "xpu":
+                            target_dtype = torch.float32
+                        return data.to(target_dtype).to(target_device)
                     elif self.cast_type == 'fp32':
                         return data.to(torch.float32).to(target_device)
                     elif self.cast_type == 'fp16':

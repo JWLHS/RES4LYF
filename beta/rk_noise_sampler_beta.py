@@ -11,7 +11,7 @@ import comfy.model_patcher
 import comfy.supported_models
 
 from .noise_classes import NOISE_GENERATOR_CLASSES, NOISE_GENERATOR_CLASSES_SIMPLE
-from ..device_utils import get_torch_device
+from ..device_utils import get_torch_device, safe_dtype
 from .constants     import MAX_STEPS
 
 from ..helper       import ExtraOptions, has_nested_attr 
@@ -59,7 +59,7 @@ class RK_NoiseSampler:
                 ):
         
         self.device                 = device if device is not None else get_torch_device()
-        self.dtype                  = dtype
+        self.dtype                  = safe_dtype(dtype)
         
         self.model                  = model
 
@@ -217,8 +217,8 @@ class RK_NoiseSampler:
         self.s_in                   = x.new_ones([1], dtype=self.dtype, device=self.device)
 
         # torch's RNG stream differs per dtype, so noise_dtype — not the math precision — decides
-        # which noise realization a seed produces; the float64 default keeps seeds stable across work_dtype
-        noise_dtype = self.EO("noise_dtype", self.dtype)
+        # which noise realization a seed produces; float64 is clamped to fp32 on XPU.
+        noise_dtype = safe_dtype(self.EO("noise_dtype", self.dtype))
         if x.dtype != noise_dtype:
             x = x.to(noise_dtype)
 

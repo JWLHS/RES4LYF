@@ -9,7 +9,7 @@ import copy
 from comfy.samplers import SCHEDULER_NAMES
 
 from .res4lyf import RESplain
-from .device_utils import pinv
+from .device_utils import pinv, safe_dtype
 
 
 
@@ -459,7 +459,10 @@ class PrecisionTool:
             def cast_and_move_to_device(data):
                 if torch.is_tensor(data):
                     if self.cast_type == 'fp64':
-                        return data.to(torch.float64).to(target_device)
+                        target_dtype = torch.float64
+                        if getattr(target_device, "type", None) == "xpu":
+                            target_dtype = torch.float32
+                        return data.to(target_dtype).to(target_device)
                     elif self.cast_type == 'fp32':
                         return data.to(torch.float32).to(target_device)
                     elif self.cast_type == 'fp16':
@@ -497,7 +500,7 @@ class FrameWeightsManager:
             "is_reversed": False,   # Whether to reverse weights
             "custom_string": None,  # Per-configuration custom string
         }
-        self.dtype = torch.float64
+        self.dtype = safe_dtype(torch.float64)
         self.device = torch.device('cpu')
     
     def set_device_and_dtype(self, device=None, dtype=None):
