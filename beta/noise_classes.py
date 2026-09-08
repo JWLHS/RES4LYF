@@ -1,4 +1,6 @@
 import torch
+from ..device_utils import safe_dtype
+
 import torch.nn.functional as F
 
 from torch               import nn, Tensor, Generator, lerp
@@ -47,7 +49,7 @@ class PrecisionTool:
             def cast_and_move_to_device(data):
                 if torch.is_tensor(data):
                     if self.cast_type == 'fp64':
-                        target_dtype = torch.float64
+                        target_dtype = safe_dtype(torch.float64)
                         if getattr(target_device, "type", None) == "xpu":
                             target_dtype = torch.float32
                         return data.to(target_dtype).to(target_device)

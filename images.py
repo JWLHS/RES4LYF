@@ -13,7 +13,8 @@ import cv2
 
 from PIL import Image, ImageFilter, ImageEnhance
 
-from .device_utils import get_torch_device
+from .device_utils import get_torch_device, safe_dtype
+
 
 import comfy
 
@@ -471,10 +472,10 @@ class Frequency_Separation_Hard_Light:
     def main(self, high_pass=None, original=None, low_pass=None):
 
         if high_pass is None:
-            high_pass = hard_light_freq_sep(original.to(torch.float64).to(get_torch_device()), low_pass.to(torch.float64).to(get_torch_device()))
+            high_pass = hard_light_freq_sep(original.to(safe_dtype(torch.float64)).to(get_torch_device()), low_pass.to(safe_dtype(torch.float64)).to(get_torch_device()))
         
         if original is None:
-            original = hard_light_blend(low_pass.to(torch.float64).to(get_torch_device()), high_pass.to(torch.float64).to(get_torch_device()))
+            original = hard_light_blend(low_pass.to(safe_dtype(torch.float64)).to(get_torch_device()), high_pass.to(safe_dtype(torch.float64)).to(get_torch_device()))
 
         return (high_pass, original, low_pass,)
 
@@ -503,15 +504,15 @@ class Frequency_Separation_Hard_Light_LAB:
     def main(self, high_pass=None, original=None, low_pass=None):
 
         if original is not None:
-            lab_original = rgb_to_lab(original.to(torch.float64).permute(0, 3, 1, 2))
+            lab_original = rgb_to_lab(original.to(safe_dtype(torch.float64)).permute(0, 3, 1, 2))
             lab_original_normalized = normalize_lab(lab_original)
         
         if low_pass is not None:
-            lab_low_pass = rgb_to_lab(low_pass.to(torch.float64).permute(0, 3, 1, 2))
+            lab_low_pass = rgb_to_lab(low_pass.to(safe_dtype(torch.float64)).permute(0, 3, 1, 2))
             lab_low_pass_normalized = normalize_lab(lab_low_pass)
 
         if high_pass is not None:
-            lab_high_pass = rgb_to_lab(high_pass.to(torch.float64).permute(0, 3, 1, 2))
+            lab_high_pass = rgb_to_lab(high_pass.to(safe_dtype(torch.float64)).permute(0, 3, 1, 2))
             lab_high_pass_normalized = normalize_lab(lab_high_pass)
 
         #original_l = lab_original_normalized[:, :1, :, :]  
@@ -635,11 +636,11 @@ class Image_Channels_LAB:
     def main(self, RGB=None, L=None, A=None, B=None):
 
         if RGB is not None:
-            LAB = rgb_to_lab(RGB.to(torch.float64).permute(0, 3, 1, 2))
+            LAB = rgb_to_lab(RGB.to(safe_dtype(torch.float64)).permute(0, 3, 1, 2))
             L, A, B = LAB[:, 0:1, :, :], LAB[:, 1:2, :, :], LAB[:, 2:3, :, :]
         else:
             LAB = torch.cat([L,A,B], dim=1)
-            RGB = lab_to_rgb(LAB.to(torch.float64)).permute(0,2,3,1)
+            RGB = lab_to_rgb(LAB.to(safe_dtype(torch.float64))).permute(0,2,3,1)
 
         return (RGB, L, A, B,)
     
@@ -668,10 +669,10 @@ class Frequency_Separation_Vivid_Light:
     def main(self, high_pass=None, original=None, low_pass=None):
 
         if high_pass is None:
-            high_pass = hard_light_freq_sep(low_pass.to(torch.float64), original.to(torch.float64))
+            high_pass = hard_light_freq_sep(low_pass.to(safe_dtype(torch.float64)), original.to(safe_dtype(torch.float64)))
         
         if original is None:
-            original = hard_light_blend(high_pass.to(torch.float64), low_pass.to(torch.float64))
+            original = hard_light_blend(high_pass.to(safe_dtype(torch.float64)), low_pass.to(safe_dtype(torch.float64)))
 
         return (high_pass, original, low_pass,)
 
@@ -700,10 +701,10 @@ class Frequency_Separation_Linear_Light:
     def main(self, high_pass=None, original=None, low_pass=None):
 
         if high_pass is None:
-            high_pass = linear_light_freq_sep(original.to(torch.float64).to(get_torch_device()), low_pass.to(torch.float64).to(get_torch_device()))
+            high_pass = linear_light_freq_sep(original.to(safe_dtype(torch.float64)).to(get_torch_device()), low_pass.to(safe_dtype(torch.float64)).to(get_torch_device()))
         
         if original is None:
-            original = linear_light_blend(low_pass.to(torch.float64).to(get_torch_device()), high_pass.to(torch.float64).to(get_torch_device()))
+            original = linear_light_blend(low_pass.to(safe_dtype(torch.float64)).to(get_torch_device()), high_pass.to(safe_dtype(torch.float64)).to(get_torch_device()))
 
         return (high_pass, original, low_pass,)
 
@@ -734,7 +735,7 @@ class Frequency_Separation_FFT:
     def main(self, high_pass=None, original=None, low_pass=None, cutoff=5.0, sigma=5.0):
 
         if high_pass is None:
-            low_pass, high_pass = freq_sep_fft(original.to(torch.float64), cutoff=cutoff, sigma=sigma)
+            low_pass, high_pass = freq_sep_fft(original.to(safe_dtype(torch.float64)), cutoff=cutoff, sigma=sigma)
         
         if original is None:
             original = low_pass + high_pass

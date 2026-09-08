@@ -37,7 +37,7 @@ class RK_Method_Beta:
                 noise_boost_normalize : bool        = True,
                 model_device                   = None,
                 work_device           : str         = 'cpu',
-                dtype                 : torch.dtype = torch.float64,
+                dtype                 : torch.dtype = safe_dtype(torch.float64),
                 extra_options         : str         = ""
                 ):
         
@@ -127,7 +127,7 @@ class RK_Method_Beta:
             noise_boost_normalize  : bool = True,
             model_device                   = None,
             work_device   : str         = 'cpu',
-            dtype         : torch.dtype = torch.float64,
+            dtype         : torch.dtype = safe_dtype(torch.float64),
             extra_options : str         = ""
             ) -> "Union[RK_Method_Exponential, RK_Method_Linear]":
         
@@ -900,7 +900,7 @@ class RK_Method_Exponential(RK_Method_Beta):
 
                 model_device                   = None,
                 work_device   : str         = 'cpu',
-                dtype         : torch.dtype = torch.float64,
+                dtype         : torch.dtype = safe_dtype(torch.float64),
                 extra_options : str         = "",
                 ):
         
@@ -1049,7 +1049,7 @@ class RK_Method_Linear(RK_Method_Beta):
                 noise_boost_normalize  : bool,
                 model_device                   = None,
                 work_device   : str         = 'cpu',
-                dtype         : torch.dtype = torch.float64,
+                dtype         : torch.dtype = safe_dtype(torch.float64),
                 extra_options : str         = "",
                 ):
         

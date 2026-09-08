@@ -54,7 +54,7 @@ class RK_NoiseSampler:
                 model,
                 step          : int=0,
                 device                 = None,
-                dtype         : torch.dtype=torch.float64,
+                dtype         : torch.dtype=safe_dtype(torch.float64),
                 extra_options : str=""
                 ):
         

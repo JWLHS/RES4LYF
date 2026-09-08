@@ -6,7 +6,8 @@ from torch import Tensor, nn
 from typing import Optional, Callable, Tuple, Dict, List, Any, Union
 
 from ..helper import ExtraOptions
-from ..device_utils import get_torch_device
+from ..device_utils import get_torch_device, safe_dtype
+
 
 from dataclasses import dataclass
 import copy
@@ -463,7 +464,7 @@ class ReFlux(Flux):
                 clip = clip.to(x)
         
                 img_in_dtype = self.img_in.weight.data.dtype
-                if img_in_dtype not in {torch.bfloat16, torch.float16, torch.float32, torch.float64}:
+                if img_in_dtype not in {torch.bfloat16, torch.float16, torch.float32, safe_dtype(torch.float64)}:
                     img_in_dtype = x.dtype
                 
                 if ref_latents is not None:
@@ -949,7 +950,7 @@ class ReFlux(Flux):
         if not torch.is_tensor(t):
             is_mps = device.type == "mps"
             if isinstance(t, float):
-                dtype = torch.float32 if is_mps else torch.float64
+                dtype = torch.float32 if is_mps else safe_dtype(torch.float64)
             else:
                 dtype = torch.int32   if is_mps else torch.int64
             t = Tensor([t], dtype=dtype, device=device)

@@ -10,7 +10,8 @@ from typing import Dict, Optional, Tuple, List
 
 from .symmetric_patchifier import SymmetricPatchifier, latent_to_pixel_coords
 from ..helper  import ExtraOptions
-from ..device_utils import pinv, whitening_eigh
+from ..device_utils import pinv, whitening_eigh, safe_dtype
+
 
 
 def get_timestep_embedding(
@@ -531,7 +532,7 @@ class ReLTXVModel(torch.nn.Module):
 
         
         dtype = eps.dtype if self.style_dtype is None else self.style_dtype
-        pinv_dtype = torch.float32 if dtype != torch.float64 else dtype
+        pinv_dtype = torch.float32 if dtype != safe_dtype(torch.float64) else dtype
         W_inv = None
         
         

@@ -14,7 +14,8 @@ from einops import rearrange, repeat
 from comfy.ldm.modules.diffusionmodules.util import timestep_embedding
 import comfy.ops
 import comfy.ldm.common_dit
-from ..device_utils import pinv, whitening_eigh
+from ..device_utils import pinv, whitening_eigh, safe_dtype
+
 
 from ..helper import ExtraOptions
 
@@ -1450,7 +1451,7 @@ class MMDiT(nn.Module):
         
         
         dtype = eps.dtype if self.style_dtype is None else self.style_dtype
-        pinv_dtype = torch.float32 if dtype != torch.float64 else dtype
+        pinv_dtype = torch.float32 if dtype != safe_dtype(torch.float64) else dtype
         W_inv = None
 
         #if eps.shape[0] == 2 or (eps.shape[0] == 1 and not UNCOND):
@@ -1459,9 +1460,9 @@ class MMDiT(nn.Module):
             y0_style_pos_synweight = transformer_options.get("y0_style_pos_synweight")
             y0_style_pos_synweight *= y0_style_pos_weight
             
-            y0_style_pos = y0_style_pos.to(torch.float64)
-            x   = x_orig.to(torch.float64)
-            eps = eps.to(torch.float64)
+            y0_style_pos = y0_style_pos.to(safe_dtype(torch.float64))
+            x   = x_orig.to(safe_dtype(torch.float64))
+            eps = eps.to(safe_dtype(torch.float64))
             eps_orig = eps.clone()
             if y0_style_pos.device.type == "xpu":
                 # XPU has no fp64 support: run the retrojector math in fp32
@@ -1470,15 +1471,15 @@ class MMDiT(nn.Module):
                 eps          = eps.float()
                 eps_orig     = eps_orig.float()
             
-            sigma = SIGMA# t_orig[0].to(torch.float64) / 1000
+            sigma = SIGMA# t_orig[0].to(safe_dtype(torch.float64)) / 1000
             denoised = x - sigma * eps
 
             hw = denoised.shape[-2:]
             
             features = 1536# denoised_embed.shape[-1] # should be 1536
             
-            W_conv = self.x_embedder.proj.weight.to(torch.float64)  # [1536, 16, 2, 2]
-            W_flat = W_conv.view(features, -1).to(torch.float64)    # [1536, 64]
+            W_conv = self.x_embedder.proj.weight.to(safe_dtype(torch.float64))  # [1536, 16, 2, 2]
+            W_flat = W_conv.view(features, -1).to(safe_dtype(torch.float64))    # [1536, 64]
             W_pinv = pinv(W_flat)                        # [64, 1536]
 
             x_embedder64 = copy.deepcopy(self.x_embedder.proj).to(denoised)
@@ -1489,7 +1490,7 @@ class MMDiT(nn.Module):
             y_flat = y.view(B, C_out, -1)                   # [B, 1536, N]
             y_flat = y_flat.permute(0, 2, 1)                # [B, N, 1536]
 
-            bias = self.x_embedder.proj.bias.to(torch.float64)               # [1536]
+            bias = self.x_embedder.proj.bias.to(safe_dtype(torch.float64))               # [1536]
             if y0_style_pos.device.type == "xpu":
                 bias = bias.float()
             denoised_embed = y_flat - bias.view(1, 1, -1)
@@ -1504,7 +1505,7 @@ class MMDiT(nn.Module):
             y_flat = y.view(B, C_out, -1)                   # [B, 1536,    N]
             y_flat = y_flat.permute(0, 2, 1)                # [B, N   , 1536]
 
-            bias = self.x_embedder.proj.bias.to(torch.float64)              # [1536]
+            bias = self.x_embedder.proj.bias.to(safe_dtype(torch.float64))              # [1536]
             if y0_style_pos.device.type == "xpu":
                 bias = bias.float()
             y0_adain_embed = y_flat - bias.view(1, 1, -1)
@@ -1592,9 +1593,9 @@ class MMDiT(nn.Module):
             y0_style_neg_synweight = transformer_options.get("y0_style_neg_synweight")
             y0_style_neg_synweight *= y0_style_neg_weight
             
-            y0_style_neg = y0_style_neg.to(torch.float64)
-            x   = x_orig.to(torch.float64)
-            eps = eps.to(torch.float64)
+            y0_style_neg = y0_style_neg.to(safe_dtype(torch.float64))
+            x   = x_orig.to(safe_dtype(torch.float64))
+            eps = eps.to(safe_dtype(torch.float64))
             eps_orig = eps.clone()
             if y0_style_neg.device.type == "xpu":
                 # XPU has no fp64 support: run the retrojector math in fp32
@@ -1603,7 +1604,7 @@ class MMDiT(nn.Module):
                 eps          = eps.float()
                 eps_orig     = eps_orig.float()
             
-            sigma = SIGMA# t_orig[0].to(torch.float64) / 1000
+            sigma = SIGMA# t_orig[0].to(safe_dtype(torch.float64)) / 1000
             denoised = x - sigma * eps
 
             hw = denoised.shape[-2:]

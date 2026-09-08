@@ -1,4 +1,6 @@
 import torch
+from ..device_utils import safe_dtype
+
 import torch.nn.functional as F
 
 import comfy.samplers
@@ -157,7 +159,7 @@ class Legacy_ClownsharKSampler:
                     latent_guide=None, latent_guide_inv=None, latent_guide_weight=0.0, guide_mode="blend", latent_guide_weights=None, latent_guide_mask=None, rescale_floor=True, sigmas_override=None, unsampler_type="linear",
                     shift=3.0, base_shift=0.85, guides=None, options=None,
                     ): 
-            default_dtype = torch.float64
+            default_dtype = safe_dtype(torch.float64)
             max_steps = 10000
 
 
@@ -468,7 +470,7 @@ class Legacy_ClownsharKSamplerGuides:
 
     def get_sampler(self, model=None, scheduler="constant", steps=30, denoise=1.0, latent_guide=None, latent_guide_inv=None, latent_guide_weight=0.0, guide_mode="blend", latent_guide_weights=None, latent_guide_mask=None, rescale_floor=True, t_is=None,
                     ):
-        default_dtype = torch.float64
+        default_dtype = safe_dtype(torch.float64)
         
         max_steps = 10000
         
@@ -541,7 +543,7 @@ class Legacy_SharkSampler:
             latent = latent_image
             latent_image_dtype = latent_image['samples'].dtype
             
-            default_dtype = torch.float64
+            default_dtype = safe_dtype(torch.float64)
             
             if positive is None:
                 positive = [[
@@ -562,7 +564,7 @@ class Legacy_SharkSampler:
             else: 
                 sigmas = get_sigmas(model, scheduler, steps, denoise).to(default_dtype)
                 
-            #sigmas = sigmas.clone().to(torch.float64)
+            #sigmas = sigmas.clone().to(safe_dtype(torch.float64))
         
             if sampler_mode == "unsample": 
                 null = torch.tensor([0.0], device=sigmas.device, dtype=sigmas.dtype)

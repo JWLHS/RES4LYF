@@ -17,7 +17,8 @@ import comfy.model_management
 
 from ..latents import interpolate_spd
 from ..helper  import ExtraOptions
-from ..device_utils import pinv, whitening_eigh
+from ..device_utils import pinv, whitening_eigh, safe_dtype
+
 
 
 def sinusoidal_embedding_1d(dim, position):
@@ -931,7 +932,7 @@ class ReWanModel(torch.nn.Module):
         
         
         dtype = eps.dtype if self.style_dtype is None else self.style_dtype
-        pinv_dtype = torch.float32 if dtype != torch.float64 else dtype
+        pinv_dtype = torch.float32 if dtype != safe_dtype(torch.float64) else dtype
         W_inv = None
         
         

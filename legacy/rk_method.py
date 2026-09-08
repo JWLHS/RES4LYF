@@ -13,12 +13,13 @@ import itertools
 
 from .rk_coefficients import *
 from .phi_functions import *
-from ..device_utils import get_torch_device
+from ..device_utils import get_torch_device, safe_dtype
+
 
 
 
 class RK_Method:
-    def __init__(self, model, name="", method="explicit", dynamic_method=False, device=None, dtype=torch.float64):
+    def __init__(self, model, name="", method="explicit", dynamic_method=False, device=None, dtype=safe_dtype(torch.float64)):
         self.model = model
         self.model_sampling = model.inner_model.inner_model.model_sampling
         self.device = device if device is not None else get_torch_device()
@@ -63,7 +64,7 @@ class RK_Method:
             return False
 
     @staticmethod
-    def create(model, rk_type, device=None, dtype=torch.float64, name="", method="explicit"):
+    def create(model, rk_type, device=None, dtype=safe_dtype(torch.float64), name="", method="explicit"):
         if RK_Method.is_exponential(rk_type):
             return RK_Method_Exponential(model, name, method, device, dtype)
         else:
@@ -207,7 +208,7 @@ class RK_Method:
         
 
 class RK_Method_Exponential(RK_Method):
-    def __init__(self, model, name="", method="explicit", device=None, dtype=torch.float64):
+    def __init__(self, model, name="", method="explicit", device=None, dtype=safe_dtype(torch.float64)):
         super().__init__(model, name, method, device, dtype) 
         self.exponential = True
         self.eps_pred = True
@@ -275,7 +276,7 @@ class RK_Method_Exponential(RK_Method):
 
 
 class RK_Method_Linear(RK_Method):
-    def __init__(self, model, name="", method="explicit", device=None, dtype=torch.float64):
+    def __init__(self, model, name="", method="explicit", device=None, dtype=safe_dtype(torch.float64)):
         super().__init__(model, name, method, device, dtype) 
         self.expanential = False
         self.eps_pred = True

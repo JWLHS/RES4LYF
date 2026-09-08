@@ -8,7 +8,8 @@ import logging
 import copy
 
 from ..helper import ExtraOptions
-from ..device_utils import get_torch_device
+from ..device_utils import get_torch_device, safe_dtype
+
 
 from comfy.ldm.modules.diffusionmodules.util import (
     checkpoint,
@@ -1209,7 +1210,7 @@ class ReUNetModel(nn.Module):
 
             y0_style_pos = y0_style_pos.to(dtype)
             #x   = x.to(dtype)
-            x   = x_orig.clone().to(torch.float64) * ((SIGMA ** 2 + 1) ** 0.5)
+            x   = x_orig.clone().to(safe_dtype(torch.float64)) * ((SIGMA ** 2 + 1) ** 0.5)
             eps = eps.to(dtype)
             eps_orig = eps.clone()
             
@@ -1382,7 +1383,7 @@ class ReUNetModel(nn.Module):
             
             y0_style_neg = y0_style_neg.to(dtype)
             #x   = x.to(dtype)
-            x   = x_orig.clone().to(torch.float64) * ((SIGMA ** 2 + 1) ** 0.5)
+            x   = x_orig.clone().to(safe_dtype(torch.float64)) * ((SIGMA ** 2 + 1) ** 0.5)
             eps = eps.to(dtype)
             eps_orig = eps.clone()
             

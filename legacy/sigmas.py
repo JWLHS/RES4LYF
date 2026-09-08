@@ -10,7 +10,8 @@ import torch.optim as optim
 
 from comfy.k_diffusion.sampling import get_sigmas_polyexponential, get_sigmas_karras
 import comfy.samplers
-from ..device_utils import get_torch_device
+from ..device_utils import get_torch_device, safe_dtype
+
 
 def rescale_linear(input, input_min, input_max, output_min, output_max):
     output = ((input - input_min) / (input_max - input_min)) * (output_max - output_min) + output_min;
@@ -47,8 +48,8 @@ class set_precision_sigmas:
                 sigmas = sigmas.to(torch.float32)
             case "64":
                 if set_default is True:
-                    torch.set_default_dtype(torch.float64)
-                sigmas = sigmas.to(torch.float64)
+                    torch.set_default_dtype(safe_dtype(torch.float64))
+                sigmas = sigmas.to(safe_dtype(torch.float64))
         return (sigmas, )
 
 
@@ -276,7 +277,7 @@ class sigmas_noise_inversion:
     DESCRIPTION = "For use with unsampling. Connect sigmas_fwd to the unsampling (first) node, and sigmas_rev to the sampling (second) node."
     
     def main(self, sigmas):
-        sigmas = sigmas.clone().to(torch.float64)
+        sigmas = sigmas.clone().to(safe_dtype(torch.float64))
         
         null = torch.tensor([0.0], device=sigmas.device, dtype=sigmas.dtype)
         sigmas_fwd = torch.flip(sigmas, dims=[0])
@@ -312,7 +313,7 @@ class sigmas_variance_floor:
     
     def main(self, sigmas):
         dtype = sigmas.dtype
-        sigmas = sigmas.clone().to(torch.float64)
+        sigmas = sigmas.clone().to(safe_dtype(torch.float64))
         for i in range(len(sigmas) - 1):
             sigma_next = (-1 + torch.sqrt(1 + 4 * sigmas[i])) / 2
             
@@ -343,7 +344,7 @@ class sigmas_from_text:
         text_list = [float(val) for val in text.replace(",", " ").split()]
         #text_list = [float(val.strip()) for val in text.split(",")]
 
-        sigmas = torch.tensor(text_list).to(get_torch_device()).to(torch.float64)
+        sigmas = torch.tensor(text_list).to(get_torch_device()).to(safe_dtype(torch.float64))
         
         return (sigmas,)
 

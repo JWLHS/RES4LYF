@@ -13,7 +13,8 @@ import io
 import pickle # used strictly for serializing conditioning in the ConditioningToBase64 and Base64ToConditioning nodes for API use. (Offloading T5 processing to another machine to avoid model shuffling.)
 
 import comfy.supported_models
-from .device_utils import get_torch_device
+from .device_utils import get_torch_device, safe_dtype
+
 import node_helpers
 import gc
 
@@ -429,14 +430,14 @@ class Conditioning_Recast64:
 
     @precision_tool.cast_tensor
     def main(self, cond_0, cond_1 = None):
-        cond_0[0][0] = cond_0[0][0].to(torch.float64)
+        cond_0[0][0] = cond_0[0][0].to(safe_dtype(torch.float64))
         if 'pooled_output' in cond_0[0][1]:
-            cond_0[0][1]["pooled_output"] = cond_0[0][1]["pooled_output"].to(torch.float64)
+            cond_0[0][1]["pooled_output"] = cond_0[0][1]["pooled_output"].to(safe_dtype(torch.float64))
         
         if cond_1 is not None:
-            cond_1[0][0] = cond_1[0][0].to(torch.float64)
+            cond_1[0][0] = cond_1[0][0].to(safe_dtype(torch.float64))
             if 'pooled_output' in cond_0[0][1]:
-                cond_1[0][1]["pooled_output"] = cond_1[0][1]["pooled_output"].to(torch.float64)
+                cond_1[0][1]["pooled_output"] = cond_1[0][1]["pooled_output"].to(safe_dtype(torch.float64))
 
         return (cond_0, cond_1,)
 
@@ -1197,7 +1198,7 @@ class ClownRegionalConditioning_AB:
                                 invert_mask              : bool   = False,
                                 ) -> Tuple[Tensor]:
 
-        default_dtype  = torch.float64
+        default_dtype  = safe_dtype(torch.float64)
         default_device = get_torch_device()
         
         if end_step == -1:
@@ -1424,7 +1425,7 @@ class ClownRegionalConditioning_ABC:
                                 invert_mask              : bool   = False,
                                 ) -> Tuple[Tensor]:
 
-        default_dtype  = torch.float64
+        default_dtype  = safe_dtype(torch.float64)
         default_device = get_torch_device()
         
         if end_step == -1:
@@ -1761,7 +1762,7 @@ class ClownRegionalConditionings:
                                 invert_masks             : bool   = False,
                                 ) -> Tuple[Tensor]:
 
-        default_dtype  = torch.float64
+        default_dtype  = safe_dtype(torch.float64)
         default_device = get_torch_device()
         
         cond_list               = [region['conditioning']       for region in cond_regions]

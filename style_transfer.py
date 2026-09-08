@@ -12,7 +12,8 @@ import comfy
 
 
 from .latents import gaussian_blur_2d, median_blur_2d
-from .device_utils import get_torch_device, pinv, whitening_eigh
+from .device_utils import get_torch_device, pinv, whitening_eigh, safe_dtype
+
 
 # WIP... not yet in use...
 class StyleTransfer:  
@@ -20,8 +21,8 @@ class StyleTransfer:
         style_method  = "WCT",
         embedder_method = None,
         patch_size    = 1,
-        pinv_dtype    = torch.float64,
-        dtype         = torch.float64,
+        pinv_dtype    = safe_dtype(torch.float64),
+        dtype         = safe_dtype(torch.float64),
     ):
         self.style_method  = style_method
         
@@ -237,7 +238,7 @@ class StyleTransfer:
 
 
 class StyleWCT:  
-    def __init__(self, dtype=torch.float64, use_svd=False,):
+    def __init__(self, dtype=safe_dtype(torch.float64), use_svd=False,):
         self.dtype          = dtype
         self.use_svd        = use_svd
         self.y0_adain_embed = None
@@ -396,7 +397,7 @@ def haar_wavelet_reconstruct(LL, LH, HL, HH):
 """
 
 class StyleFeatures:  
-    def __init__(self, dtype=torch.float64,):
+    def __init__(self, dtype=safe_dtype(torch.float64),):
         self.dtype = dtype
 
     def set(self, y0_adain_embed: torch.Tensor):
@@ -411,7 +412,7 @@ class StyleFeatures:
 
 
 class Retrojector:  
-    def __init__(self, proj=None, patch_size=2, pinv_dtype=torch.float64, dtype=torch.float64, ENDO=False):
+    def __init__(self, proj=None, patch_size=2, pinv_dtype=safe_dtype(torch.float64), dtype=safe_dtype(torch.float64), ENDO=False):
         self.proj       = proj
         self.patch_size = patch_size
         self.pinv_dtype = pinv_dtype
@@ -863,7 +864,7 @@ def adain_patchwise(content: torch.Tensor, style: torch.Tensor, sigma: float = 1
         kernel_size += 1
 
     pad    = kernel_size // 2
-    coords = torch.arange(kernel_size, dtype=torch.float64, device=device) - pad
+    coords = torch.arange(kernel_size, dtype=safe_dtype(torch.float64), device=device) - pad
     gauss  = torch.exp(-0.5 * (coords / sigma) ** 2)
     gauss /= gauss.sum()
     kernel_2d = (gauss[:, None] * gauss[None, :]).to(dtype=dtype)
@@ -903,7 +904,7 @@ def adain_patchwise_row_batch(content: torch.Tensor, style: torch.Tensor, sigma:
         kernel_size += 1
 
     pad = kernel_size // 2
-    coords = torch.arange(kernel_size, dtype=torch.float64, device=device) - pad
+    coords = torch.arange(kernel_size, dtype=safe_dtype(torch.float64), device=device) - pad
     gauss = torch.exp(-0.5 * (coords / sigma) ** 2)
     gauss = (gauss / gauss.sum()).to(dtype)
     kernel_2d = (gauss[:, None] * gauss[None, :])
@@ -970,7 +971,7 @@ def adain_patchwise_row_batch_med(content: torch.Tensor, style: torch.Tensor, si
             sigma_scale = scaling[0, 0]  # assuming single-channel mask broadcasted across B, C
 
     if not use_median_blur:
-        coords = torch.arange(kernel_size, dtype=torch.float64, device=device) - pad
+        coords = torch.arange(kernel_size, dtype=safe_dtype(torch.float64), device=device) - pad
         base_gauss = torch.exp(-0.5 * (coords / sigma) ** 2)
         base_gauss = (base_gauss / base_gauss.sum()).to(dtype)
         gaussian_table = {}
@@ -1116,7 +1117,7 @@ class Stylizer:
     
     CLS_WCT2 = WaveletStyleWCT()
     
-    def __init__(self, dtype=torch.float64, device=None):
+    def __init__(self, dtype=safe_dtype(torch.float64), device=None):
         self.dtype = dtype
         self.device = device if device is not None else get_torch_device()
         self.mask  = [None]
@@ -1388,7 +1389,7 @@ class Stylizer:
         #buf['ref_sorted'], buf['ref_idx'] = y.sort(dim=-2)
         #mag, _ = Stylizer.decompose_magnitude_direction(buf['src_sorted'], dim)
         #_, dir = Stylizer.decompose_magnitude_direction(buf['ref_sorted'], dim)
-        mag, _ = Stylizer.decompose_magnitude_direction(x.to(torch.float64), dim)
+        mag, _ = Stylizer.decompose_magnitude_direction(x.to(safe_dtype(torch.float64)), dim)
         
         buf = Stylizer.buffer
         buf['src_idx']                    = x.argsort(dim=-2)
@@ -1396,7 +1397,7 @@ class Stylizer:
         x.scatter_(dim=-2, index=buf['src_idx'], src=buf['ref_sorted'].expand_as(buf['src_idx']))
         
         
-        _, dir = Stylizer.decompose_magnitude_direction(x.to(torch.float64), dim)
+        _, dir = Stylizer.decompose_magnitude_direction(x.to(safe_dtype(torch.float64)), dim)
         
         return (mag * dir).to(x)
 
@@ -1420,8 +1421,8 @@ class Stylizer:
         buf['x_sub'], buf['x_sub_idx'] = buf['src_sorted'].sort(dim=-1)
         buf['y_sub'], buf['y_sub_idx'] = buf['ref_sorted'].sort(dim=-1)
         
-        mag, _ = Stylizer.decompose_magnitude_direction(buf['x_sub'].to(torch.float64), -1)
-        _, dir = Stylizer.decompose_magnitude_direction(buf['y_sub'].to(torch.float64), -1)
+        mag, _ = Stylizer.decompose_magnitude_direction(buf['x_sub'].to(safe_dtype(torch.float64)), -1)
+        _, dir = Stylizer.decompose_magnitude_direction(buf['y_sub'].to(safe_dtype(torch.float64)), -1)
         
         buf['y_sub'] = (mag * dir).to(x)
         
@@ -1429,8 +1430,8 @@ class Stylizer:
 
 
 
-        mag, _ = Stylizer.decompose_magnitude_direction(buf['src_sorted'].to(torch.float64), dim)
-        _, dir = Stylizer.decompose_magnitude_direction(buf['ref_sorted'].to(torch.float64), dim)
+        mag, _ = Stylizer.decompose_magnitude_direction(buf['src_sorted'].to(safe_dtype(torch.float64)), dim)
+        _, dir = Stylizer.decompose_magnitude_direction(buf['ref_sorted'].to(safe_dtype(torch.float64)), dim)
         
         buf['ref_sorted'] = (mag * dir).to(x)
         
@@ -1902,7 +1903,7 @@ class StyleUNet_OutputBlock(StyleUNet_BaseBlock):
 
 class Style_Model(Stylizer):
 
-    def __init__(self, dtype=torch.float64, device=None):
+    def __init__(self, dtype=safe_dtype(torch.float64), device=None):
         super().__init__(dtype, device)
         self.guides = []
         self.GUIDES_INITIALIZED = False
@@ -2148,14 +2149,14 @@ class Style_Model(Stylizer):
         if self.data_shock == "scattersort":
             return self.apply_to_data(denoised, datashock_ref, self.data_shock)
         else:
-            return torch.lerp(denoised, self.apply_to_data(denoised, datashock_ref, self.data_shock), torch.Tensor([self.data_shock_weight]).double().to(self.device))
+            return torch.lerp(denoised, self.apply_to_data(denoised, datashock_ref, self.data_shock), torch.Tensor([self.data_shock_weight]).to(safe_dtype(torch.float64)).to(self.device))
 
 
 
 
 class StyleMMDiT_Model(Style_Model):
 
-    def __init__(self, dtype=torch.float64, device=None):
+    def __init__(self, dtype=safe_dtype(torch.float64), device=None):
         super().__init__(dtype, device)
         self.double_blocks = [StyleMMDiT_DoubleBlock() for _ in range(100)]
         self.single_blocks = [StyleMMDiT_SingleBlock() for _ in range(100)]
@@ -2170,7 +2171,7 @@ class StyleMMDiT_Model(Style_Model):
 
 class StyleUNet_Model(Style_Model):
 
-    def __init__(self, dtype=torch.float64, device=None):
+    def __init__(self, dtype=safe_dtype(torch.float64), device=None):
         super().__init__(dtype, device)
         self.input_blocks  = [StyleUNet_InputBlock()  for _ in range(100)]
         self.middle_blocks = [StyleUNet_MiddleBlock() for _ in range(100)]

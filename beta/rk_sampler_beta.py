@@ -259,7 +259,7 @@ def sample_rk_beta(
     #   noise_dtype: the dtype noise is generated at — decides which noise realization a seed
     #       produces (torch's RNG stream differs per dtype), independent of the math precision.
     EO             = ExtraOptions(extra_options)
-    default_dtype  = safe_dtype(EO("default_dtype", torch.float64))
+    default_dtype  = safe_dtype(EO("default_dtype", safe_dtype(torch.float64)))
     work_dtype     = EO("work_dtype",    torch.float32)
 
     REPORT_VRAM    = EO("report_vram") and is_gpu_available()

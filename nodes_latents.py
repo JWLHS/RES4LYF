@@ -13,7 +13,8 @@ import torch
 import math
 
 from nodes import MAX_RESOLUTION
-from .device_utils import get_torch_device
+from .device_utils import get_torch_device, safe_dtype
+
 #MAX_RESOLUTION=8192
 
 from .helper             import ExtraOptions, initialize_or_scale, extra_options_flag, get_extra_options_list, extract_cond_from_guider
@@ -259,7 +260,7 @@ class latent_to_raw_x:
         if 'state_info' not in latent:
             latent['state_info'] = {}
         
-        latent['state_info']['raw_x'] = latent['samples'].to(torch.float64)
+        latent['state_info']['raw_x'] = latent['samples'].to(safe_dtype(torch.float64))
         return (latent,)
 
 
@@ -1245,8 +1246,8 @@ class LatentPhaseMagnitude:
         
         dtype = torch.promote_types(latent_0.dtype, latent_1.dtype)
         # big accuracy problems with fp32 FFT! let's avoid that
-        latent_0 = latent_0.double()
-        latent_1 = latent_1.double()
+        latent_0 = latent_0.to(safe_dtype(torch.float64))
+        latent_1 = latent_1.to(safe_dtype(torch.float64))
 
         latent_0_fft = torch.fft.fft2(latent_0)
         latent_1_fft = torch.fft.fft2(latent_1)
@@ -1323,8 +1324,8 @@ class LatentPhaseMagnitude:
             magnitude_pattern_structures = None
             ):
         
-        latent_0_batch = latent_0_batch["samples"].double()
-        latent_1_batch = latent_1_batch["samples"].double().to(latent_0_batch.device)
+        latent_0_batch = latent_0_batch["samples"].to(safe_dtype(torch.float64))
+        latent_1_batch = latent_1_batch["samples"].to(safe_dtype(torch.float64)).to(latent_0_batch.device)
 
         #if batch_size == 0:
         batch_size = latent_0_batch.shape[0]
@@ -1448,7 +1449,7 @@ class LatentPhaseMagnitudeMultiply:
                                     ):
         dtype = latent_0.dtype
         # avoid big accuracy problems with fp32 FFT!
-        latent_0 = latent_0.double()
+        latent_0 = latent_0.to(safe_dtype(torch.float64))
 
         latent_0_fft = torch.fft.fft2(latent_0)
 
@@ -1479,7 +1480,7 @@ class LatentPhaseMagnitudeMultiply:
              phase_luminositys=None,     phase_cyan_reds=None,     phase_lime_purples=None,     phase_pattern_structures=None,
              magnitude_luminositys=None, magnitude_cyan_reds=None, magnitude_lime_purples=None, magnitude_pattern_structures=None
              ):
-        latent_0_batch = latent_0_batch["samples"].double()
+        latent_0_batch = latent_0_batch["samples"].to(safe_dtype(torch.float64))
 
         batch_size = latent_0_batch.shape[0]
 
@@ -1580,7 +1581,7 @@ class LatentPhaseMagnitudeOffset:
                                     ):
         dtype = latent_0.dtype
         # avoid big accuracy problems with fp32 FFT!
-        latent_0 = latent_0.double()
+        latent_0 = latent_0.to(safe_dtype(torch.float64))
 
         latent_0_fft = torch.fft.fft2(latent_0)
 
@@ -1611,7 +1612,7 @@ class LatentPhaseMagnitudeOffset:
              phase_luminositys=None,     phase_cyan_reds=None,     phase_lime_purples=None,     phase_pattern_structures=None,
              magnitude_luminositys=None, magnitude_cyan_reds=None, magnitude_lime_purples=None, magnitude_pattern_structures=None
              ):
-        latent_0_batch = latent_0_batch["samples"].double()
+        latent_0_batch = latent_0_batch["samples"].to(safe_dtype(torch.float64))
 
         batch_size = latent_0_batch.shape[0]
 
@@ -1711,7 +1712,7 @@ class LatentPhaseMagnitudePower:
                                     ):
         dtype = latent_0.dtype
         # avoid big accuracy problems with fp32 FFT!
-        latent_0 = latent_0.double()
+        latent_0 = latent_0.to(safe_dtype(torch.float64))
 
         latent_0_fft = torch.fft.fft2(latent_0)
 
@@ -1742,7 +1743,7 @@ class LatentPhaseMagnitudePower:
             phase_luminositys=None,     phase_cyan_reds=None,     phase_lime_purples=None,     phase_pattern_structures=None,
             magnitude_luminositys=None, magnitude_cyan_reds=None, magnitude_lime_purples=None, magnitude_pattern_structures=None
             ):
-        latent_0_batch = latent_0_batch["samples"].double()
+        latent_0_batch = latent_0_batch["samples"].to(safe_dtype(torch.float64))
 
         batch_size = latent_0_batch.shape[0]
 
@@ -1957,7 +1958,7 @@ class EmptyLatentImageCustom:
             case "fp32":
                 dtype=torch.float32
             case "fp64":
-                dtype=torch.float64
+                dtype=safe_dtype(torch.float64)
 
         latent = torch.zeros([batch_size,
                             c,
@@ -1988,7 +1989,7 @@ class EmptyLatentImage64:
     CATEGORY     = "RES4LYF/latents"
 
     def generate(self, width, height, batch_size=1):
-        latent = torch.zeros([batch_size, 4, height // 8, width // 8], dtype=torch.float64, device=self.device)
+        latent = torch.zeros([batch_size, 4, height // 8, width // 8], dtype=safe_dtype(torch.float64), device=self.device)
         return ({"samples":latent}, )
 
 
@@ -2569,8 +2570,8 @@ class latent_channelwise_match:
             x_target = latent_target['samples'].clone()
             x_source = latent_source['samples'].clone()
         else:
-            x_target = model.model.process_latent_in(latent_target['samples']).clone().to(torch.float64)
-            x_source = model.model.process_latent_in(latent_source['samples']).clone().to(torch.float64)
+            x_target = model.model.process_latent_in(latent_target['samples']).clone().to(safe_dtype(torch.float64))
+            x_source = model.model.process_latent_in(latent_source['samples']).clone().to(safe_dtype(torch.float64))
         
         if mask_target is None:
             mask_target = torch.ones_like(x_target)

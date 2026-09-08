@@ -358,7 +358,7 @@ class sigmas_from_text:
         text_list = [float(val) for val in text.replace(",", " ").split()]
         #text_list = [float(val.strip()) for val in text.split(",")]
 
-        sigmas = torch.tensor(text_list) #.to('cuda').to(torch.float64)
+        sigmas = torch.tensor(text_list) #.to('cuda').to(safe_dtype(torch.float64))
         
         return (sigmas,)
 

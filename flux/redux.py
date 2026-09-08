@@ -1,4 +1,6 @@
 import torch
+from ..device_utils import safe_dtype
+
 import comfy.ops
 import torch.nn
 import torch.nn.functional as F
@@ -39,7 +41,7 @@ class ReReduxImageEncoder(torch.nn.Module):
         dense_embed256 = dense_embed256.flatten(-2,-1).transpose(-2,-1)
         
         dtype = self.style_dtype if hasattr(self, "style_dtype") and self.style_dtype is not None else dense_embed.dtype
-        pinv_dtype = torch.float32 if dtype != torch.float64 else dtype
+        pinv_dtype = torch.float32 if dtype != safe_dtype(torch.float64) else dtype
         
         W = self.redux_down.weight.data.to(dtype)   # shape [2560, 64]
         b = self.redux_down.bias.data.to(dtype)     # shape [2560]
@@ -79,12 +81,12 @@ class ReReduxImageEncoder(torch.nn.Module):
                 if f_s_centered.device.type == "xpu":
                     # XPU lacks fp64 support: run the covariance math on CPU
                     work = f_s_centered.cpu()
-                    cov = (work.T.double() @ work.double()) / (work.size(0) - 1)
+                    cov = (work.T.to(safe_dtype(torch.float64)) @ work.to(safe_dtype(torch.float64))) / (work.size(0) - 1)
                     S_eig, U_eig = torch.linalg.eigh(cov + 1e-5 * torch.eye(cov.size(0), dtype=cov.dtype, device=cov.device))
                     S_eig = S_eig.to(f_s_centered)
                     U_eig = U_eig.to(f_s_centered)
                 else:
-                    cov = (f_s_centered.T.double() @ f_s_centered.double()) / (f_s_centered.size(0) - 1)
+                    cov = (f_s_centered.T.to(safe_dtype(torch.float64)) @ f_s_centered.to(safe_dtype(torch.float64))) / (f_s_centered.size(0) - 1)
                     S_eig, U_eig = torch.linalg.eigh((cov + 1e-5 * torch.eye(cov.size(0), dtype=cov.dtype, device=cov.device)).to(cov.device))
                     S_eig = S_eig.to(cov)
                     U_eig = U_eig.to(cov)
@@ -101,12 +103,12 @@ class ReReduxImageEncoder(torch.nn.Module):
                 
                 if f_c_centered.device.type == "xpu":
                     work = f_c_centered.cpu()
-                    cov = (work.T.double() @ work.double()) / (work.size(0) - 1)
+                    cov = (work.T.to(safe_dtype(torch.float64)) @ work.to(safe_dtype(torch.float64))) / (work.size(0) - 1)
                     S_eig, U_eig = torch.linalg.eigh(cov + 1e-5 * torch.eye(cov.size(0), dtype=cov.dtype, device=cov.device))
                     S_eig = S_eig.to(f_c_centered)
                     U_eig = U_eig.to(f_c_centered)
                 else:
-                    cov = (f_c_centered.T.double() @ f_c_centered.double()) / (f_c_centered.size(0) - 1)
+                    cov = (f_c_centered.T.to(safe_dtype(torch.float64)) @ f_c_centered.to(safe_dtype(torch.float64))) / (f_c_centered.size(0) - 1)
                     S_eig, U_eig  = torch.linalg.eigh((cov + 1e-5 * torch.eye(cov.size(0), dtype=cov.dtype, device=cov.device)).to(cov.device))
                     S_eig = S_eig.to(cov)
                     U_eig = U_eig.to(cov)

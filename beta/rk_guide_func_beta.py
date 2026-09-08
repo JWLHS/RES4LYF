@@ -84,7 +84,7 @@ class LatentGuide:
                 LGW_MASK_RESCALE_MIN : bool,
                 extra_options        : str,
                 device               : str = 'cpu',
-                dtype                : torch.dtype = torch.float64,
+                dtype                : torch.dtype = safe_dtype(torch.float64),
                 frame_weights_mgr    : FrameWeightsManager = None,
                 latent_shapes        : list = None,
                 ):

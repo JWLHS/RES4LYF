@@ -187,7 +187,7 @@ class OptionsManager:
                                 if hasattr(value, "device") and value.device != torch.device('cpu'):
                                     existing_mgr.device = value.device
                                 
-                                if hasattr(value, "dtype") and value.dtype != torch.float64:
+                                if hasattr(value, "dtype") and value.dtype != safe_dtype(torch.float64):
                                     existing_mgr.dtype = value.dtype
                                 
                                 # Merge all weight_configs
@@ -459,7 +459,7 @@ class PrecisionTool:
             def cast_and_move_to_device(data):
                 if torch.is_tensor(data):
                     if self.cast_type == 'fp64':
-                        target_dtype = torch.float64
+                        target_dtype = safe_dtype(torch.float64)
                         if getattr(target_device, "type", None) == "xpu":
                             target_dtype = torch.float32
                         return data.to(target_dtype).to(target_device)
@@ -885,8 +885,8 @@ def get_max_dtype(device='cpu'):
         MAX_DTYPE = torch.float32
     else:
         try:
-            torch.tensor([0.0], dtype=torch.float64, device=device)
-            MAX_DTYPE = torch.float64
+            torch.tensor([0.0], dtype=safe_dtype(torch.float64), device=device)
+            MAX_DTYPE = safe_dtype(torch.float64)
         except (RuntimeError, TypeError):
             MAX_DTYPE = torch.float32
     return MAX_DTYPE

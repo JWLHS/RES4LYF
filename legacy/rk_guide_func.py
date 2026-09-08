@@ -8,7 +8,8 @@ from .sigmas import get_sigmas
 from .latents import hard_light_blend, normalize_latent, initialize_or_scale
 from .rk_method import RK_Method
 from .helper import get_extra_options_kv, extra_options_flag, get_cosine_similarity, get_extra_options_list
-from ..device_utils import get_torch_device
+from ..device_utils import get_torch_device, safe_dtype
+
 
 
 import itertools
@@ -38,7 +39,7 @@ def normalize_inputs(x, y0, y0_inv, guide_mode,  extra_options):
 
 
 class LatentGuide:
-    def __init__(self, guides, x, model, sigmas, UNSAMPLE, LGW_MASK_RESCALE_MIN, extra_options, device=None, dtype=torch.float64, max_steps=10000):
+    def __init__(self, guides, x, model, sigmas, UNSAMPLE, LGW_MASK_RESCALE_MIN, extra_options, device=None, dtype=safe_dtype(torch.float64), max_steps=10000):
         self.model    = model
         self.sigma_min = model.inner_model.inner_model.model_sampling.sigma_min.to(dtype)
         self.sigma_max = model.inner_model.inner_model.model_sampling.sigma_max.to(dtype)

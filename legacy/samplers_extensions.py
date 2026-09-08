@@ -11,6 +11,8 @@ from .models import ReFluxPatcher
 
 
 import torch
+from ..device_utils import safe_dtype
+
 import torch.nn.functional as F
 
 import copy
@@ -147,7 +149,7 @@ class ClownInpaint: ############################################################
                     guide_mode="epsilon", guide_weights=None, guide_weights_bkg=None, guide_mask_bkg=None,
                     model=None, positive_inpaint=None, positive_bkg=None, negative=None, latent_image=None, mask=None, 
                     ):
-        default_dtype = torch.float64
+        default_dtype = safe_dtype(torch.float64)
         guide = latent_image
         guide_bkg = {'samples': latent_image['samples'].clone()}
         
@@ -219,7 +221,7 @@ class ClownInpaintSimple: ######################################################
                     guide_mode="epsilon", guide_weights=None, guide_weights_bkg=None, guide_mask_bkg=None,
                     model=None, positive_inpaint=None, positive_bkg=None, negative=None, latent_image=None, mask=None, 
                     ):
-        default_dtype = torch.float64
+        default_dtype = safe_dtype(torch.float64)
         guide = latent_image
         guide_bkg = {'samples': latent_image['samples'].clone()}
         
@@ -299,7 +301,7 @@ class ClownsharKSamplerGuide:
     def main(self, guide_weight_scheduler="constant", guide_weight_scheduler_bkg="constant", guide_end_step=30, guide_bkg_end_step=30, guide_weight_scale=1.0, guide_weight_bkg_scale=1.0, guide=None, guide_bkg=None, guide_weight=0.0, guide_weight_bkg=0.0, 
                     guide_mode="blend", guide_weights=None, guide_weights_bkg=None, guide_mask=None, guide_mask_bkg=None,
                     ):
-        default_dtype = torch.float64
+        default_dtype = safe_dtype(torch.float64)
         
         max_steps = 10000
         
@@ -360,7 +362,7 @@ class ClownsharKSamplerGuides:
     def main(self, guide_weight_scheduler="constant", guide_weight_scheduler_bkg="constant", guide_end_step=30, guide_bkg_end_step=30, guide_weight_scale=1.0, guide_weight_bkg_scale=1.0, guide=None, guide_bkg=None, guide_weight=0.0, guide_weight_bkg=0.0, 
                     guide_mode="blend", guide_weights=None, guide_weights_bkg=None, guide_mask=None, guide_mask_bkg=None,
                     ):
-        default_dtype = torch.float64
+        default_dtype = safe_dtype(torch.float64)
         
         max_steps = 10000
         

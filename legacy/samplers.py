@@ -11,7 +11,8 @@ import comfy.model_sampling
 import comfy.latent_formats
 import comfy.sd
 import comfy.supported_models
-from ..device_utils import manual_seed
+from ..device_utils import manual_seed, safe_dtype
+
 
 import latent_preview
 import torch
@@ -96,7 +97,7 @@ class ClownSamplerAdvanced:
                 eta, eta_var = 0.0, 0.0
                 noise_mode_sde = "hard"
         
-            default_dtype = getattr(torch, get_extra_options_kv("default_dtype", "float64", extra_options), torch.float64)
+            default_dtype = getattr(torch, get_extra_options_kv("default_dtype", "float64", extra_options), safe_dtype(torch.float64))
 
             unsample_resample_scales_override = unsample_resample_scales
 
@@ -300,7 +301,7 @@ class SharkSamplerAlpha:
             else:
                 sampler = copy.deepcopy(sampler)
 
-            default_dtype = getattr(torch, get_extra_options_kv("default_dtype", "float64", extra_options), torch.float64)
+            default_dtype = getattr(torch, get_extra_options_kv("default_dtype", "float64", extra_options), safe_dtype(torch.float64))
                      
             model = model.clone()
             if pos_cond[0][1] is not None: 
@@ -775,7 +776,7 @@ class UltraSharkSampler:
                 batch_inds = latent["batch_index"] if "batch_index" in latent else None
                 noise = prepare_noise(latent_image, noise_seed, noise_type, batch_inds, alpha, k)
             else:
-                noise = latent_noise["samples"]#.to(torch.float64)
+                noise = latent_noise["samples"]#.to(safe_dtype(torch.float64))
 
             if normalize_noise and noise.std() > 0:
                 noise = (noise - noise.mean(dim=(-2, -1), keepdim=True)) / noise.std(dim=(-2, -1), keepdim=True)

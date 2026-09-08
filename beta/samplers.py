@@ -77,7 +77,7 @@ def generate_init_noise(x, seed, noise_type_init, noise_stdev, noise_mean, noise
     # generate and normalize at noise_dtype: a seed's realization must not depend on work_dtype
     out_dtype = x.dtype
     if EO is not None:
-        noise_dtype = safe_dtype(EO("noise_dtype", EO("default_dtype", torch.float64, debugMode=2), debugMode=2))
+        noise_dtype = safe_dtype(EO("noise_dtype", EO("default_dtype", safe_dtype(torch.float64), debugMode=2), debugMode=2))
     else:
         noise_dtype = safe_dtype(torch.float64)
     x = x.to(noise_dtype)
@@ -251,7 +251,7 @@ class SharkSampler:
                         
             extra_options  += "\n" + options_mgr.get('extra_options', "")
             EO              = ExtraOptions(extra_options)
-            default_dtype   = safe_dtype(EO("default_dtype", torch.float64))
+            default_dtype   = safe_dtype(EO("default_dtype", safe_dtype(torch.float64)))
             work_dtype      = EO("work_dtype",    torch.float32)   # latent-sized tensors; sigmas stay at default_dtype
             default_device  = EO("work_device", str(get_torch_device()))
             
@@ -1352,7 +1352,7 @@ class ClownSamplerAdvanced_Beta(io.ComfyNode):
             options_mgr = OptionsManager(options_group=options_group, **kwargs)
             extra_options    += "\n" + options_mgr.get('extra_options', "")
             EO = ExtraOptions(extra_options)
-            default_dtype = safe_dtype(EO("default_dtype", torch.float64))
+            default_dtype = safe_dtype(EO("default_dtype", safe_dtype(torch.float64)))
 
     
     

@@ -10,7 +10,8 @@ import comfy.sampler_helpers
 import comfy.utils
 
 from .noise_classes import NOISE_GENERATOR_NAMES, NOISE_GENERATOR_CLASSES, precision_tool, prepare_noise
-from ..device_utils import get_torch_device
+from ..device_utils import get_torch_device, safe_dtype
+
 
 
 
@@ -256,8 +257,8 @@ class set_precision:
                 x = latent_image["samples"].to(torch.float32)
             case "64":
                 if set_default is True:
-                    torch.set_default_dtype(torch.float64)
-                x = latent_image["samples"].to(torch.float64)
+                    torch.set_default_dtype(safe_dtype(torch.float64))
+                x = latent_image["samples"].to(safe_dtype(torch.float64))
         return ({"samples": x}, )
     
 
@@ -295,7 +296,7 @@ class set_precision_universal:
             case "fp32":
                 dtype = torch.float32
             case "fp64":
-                dtype = torch.float64
+                dtype = safe_dtype(torch.float64)
             case "passthrough":
                 return (cond_pos, cond_neg, sigmas, latent_image, )
         
@@ -343,7 +344,7 @@ class set_precision_advanced:
         dtype_map = {
             "16": torch.float16,
             "32": torch.float32,
-            "64": torch.float64
+            "64": safe_dtype(torch.float64)
         }
         precision_map = {
             "16": 'fp16',
@@ -358,7 +359,7 @@ class set_precision_advanced:
 
         latent_out16 = latent_image["samples"].to(torch.float16)
         latent_out32 = latent_image["samples"].to(torch.float32)
-        latent_out64 = latent_image["samples"].to(torch.float64)
+        latent_out64 = latent_image["samples"].to(safe_dtype(torch.float64))
 
         target_dtype = dtype_map[global_precision]
         if latent_image["samples"].dtype != target_dtype:
@@ -486,8 +487,8 @@ class LatentPhaseMagnitude:
                                     ):
         dtype = torch.promote_types(latent_0.dtype, latent_1.dtype)
         # big accuracy problems with fp32 FFT! let's avoid that
-        latent_0 = latent_0.double()
-        latent_1 = latent_1.double()
+        latent_0 = latent_0.to(safe_dtype(torch.float64))
+        latent_1 = latent_1.to(safe_dtype(torch.float64))
 
         latent_0_fft = torch.fft.fft2(latent_0)
         latent_1_fft = torch.fft.fft2(latent_1)
@@ -534,8 +535,8 @@ class LatentPhaseMagnitude:
              phase_luminositys=None,     phase_cyan_reds=None,     phase_lime_purples=None,     phase_pattern_structures=None,
              magnitude_luminositys=None, magnitude_cyan_reds=None, magnitude_lime_purples=None, magnitude_pattern_structures=None
              ):
-        latent_0_batch = latent_0_batch["samples"].double()
-        latent_1_batch = latent_1_batch["samples"].double().to(latent_0_batch.device)
+        latent_0_batch = latent_0_batch["samples"].to(safe_dtype(torch.float64))
+        latent_1_batch = latent_1_batch["samples"].to(safe_dtype(torch.float64)).to(latent_0_batch.device)
 
         #if batch_size == 0:
         batch_size = latent_0_batch.shape[0]
@@ -639,7 +640,7 @@ class LatentPhaseMagnitudeMultiply:
                                     ):
         dtype = latent_0.dtype
         # avoid big accuracy problems with fp32 FFT!
-        latent_0 = latent_0.double()
+        latent_0 = latent_0.to(safe_dtype(torch.float64))
 
         latent_0_fft = torch.fft.fft2(latent_0)
 
@@ -670,7 +671,7 @@ class LatentPhaseMagnitudeMultiply:
              phase_luminositys=None,     phase_cyan_reds=None,     phase_lime_purples=None,     phase_pattern_structures=None,
              magnitude_luminositys=None, magnitude_cyan_reds=None, magnitude_lime_purples=None, magnitude_pattern_structures=None
              ):
-        latent_0_batch = latent_0_batch["samples"].double()
+        latent_0_batch = latent_0_batch["samples"].to(safe_dtype(torch.float64))
 
         batch_size = latent_0_batch.shape[0]
 
@@ -755,7 +756,7 @@ class LatentPhaseMagnitudeOffset:
                                     ):
         dtype = latent_0.dtype
         # avoid big accuracy problems with fp32 FFT!
-        latent_0 = latent_0.double()
+        latent_0 = latent_0.to(safe_dtype(torch.float64))
 
         latent_0_fft = torch.fft.fft2(latent_0)
 
@@ -786,7 +787,7 @@ class LatentPhaseMagnitudeOffset:
              phase_luminositys=None,     phase_cyan_reds=None,     phase_lime_purples=None,     phase_pattern_structures=None,
              magnitude_luminositys=None, magnitude_cyan_reds=None, magnitude_lime_purples=None, magnitude_pattern_structures=None
              ):
-        latent_0_batch = latent_0_batch["samples"].double()
+        latent_0_batch = latent_0_batch["samples"].to(safe_dtype(torch.float64))
 
         batch_size = latent_0_batch.shape[0]
 
@@ -871,7 +872,7 @@ class LatentPhaseMagnitudePower:
                                     ):
         dtype = latent_0.dtype
         # avoid big accuracy problems with fp32 FFT!
-        latent_0 = latent_0.double()
+        latent_0 = latent_0.to(safe_dtype(torch.float64))
 
         latent_0_fft = torch.fft.fft2(latent_0)
 
@@ -902,7 +903,7 @@ class LatentPhaseMagnitudePower:
              phase_luminositys=None,     phase_cyan_reds=None,     phase_lime_purples=None,     phase_pattern_structures=None,
              magnitude_luminositys=None, magnitude_cyan_reds=None, magnitude_lime_purples=None, magnitude_pattern_structures=None
              ):
-        latent_0_batch = latent_0_batch["samples"].double()
+        latent_0_batch = latent_0_batch["samples"].to(safe_dtype(torch.float64))
 
         batch_size = latent_0_batch.shape[0]
 
@@ -1090,7 +1091,7 @@ class EmptyLatentImageCustom:
             case "fp32":
                 dtype=torch.float32
             case "fp64":
-                dtype=torch.float64
+                dtype=safe_dtype(torch.float64)
 
         latent = torch.zeros([batch_size, c, height // ratio, width // ratio], dtype=dtype, device=self.device)
         return ({"samples":latent}, )
@@ -1110,7 +1111,7 @@ class EmptyLatentImage64:
     CATEGORY = "RES4LYF/latents"
 
     def generate(self, width, height, batch_size=1):
-        latent = torch.zeros([batch_size, 4, height // 8, width // 8], dtype=torch.float64, device=self.device)
+        latent = torch.zeros([batch_size, 4, height // 8, width // 8], dtype=safe_dtype(torch.float64), device=self.device)
         return ({"samples":latent}, )
 
 """class CheckpointLoader32:
@@ -1124,7 +1125,7 @@ class EmptyLatentImage64:
     CATEGORY = "advanced/loaders"
 
     def load_checkpoint(self, config_name, ckpt_name, output_vae=True, output_clip=True):
-        #torch.set_default_dtype(torch.float64)
+        #torch.set_default_dtype(safe_dtype(torch.float64))
         config_path = folder_paths.get_full_path("configs", config_name)
         ckpt_path = folder_paths.get_full_path("checkpoints", ckpt_name)
         return comfy.sd.load_checkpoint(config_path, ckpt_path, output_vae=True, output_clip=True, embedding_directory=folder_paths.get_folder_paths("embeddings"))"""

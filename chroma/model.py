@@ -9,7 +9,8 @@ from einops import rearrange, repeat
 import comfy.ldm.common_dit
 
 from ..helper import ExtraOptions
-from ..device_utils import get_torch_device
+from ..device_utils import get_torch_device, safe_dtype
+
 
 from ..latents import tile_latent, untile_latent, gaussian_blur_2d, median_blur_2d
 from ..device_utils import pinv, whitening_eigh
@@ -771,7 +772,7 @@ class ReChroma(nn.Module):
         
         
         dtype = eps.dtype if self.style_dtype is None else self.style_dtype
-        pinv_dtype = torch.float32 if dtype != torch.float64 else dtype
+        pinv_dtype = torch.float32 if dtype != safe_dtype(torch.float64) else dtype
         W_inv = None
         
         
@@ -1096,7 +1097,7 @@ def gaussian_blur_2d(img: torch.Tensor, sigma: float, kernel_size: int = None) -
     if kernel_size % 2 == 0:
         kernel_size += 1
 
-    coords = torch.arange(kernel_size, dtype=torch.float64) - kernel_size // 2
+    coords = torch.arange(kernel_size, dtype=safe_dtype(torch.float64)) - kernel_size // 2
     g = torch.exp(-0.5 * (coords / sigma) ** 2)
     g = g / g.sum()
 
@@ -1138,7 +1139,7 @@ def adain_patchwise(content: torch.Tensor, style: torch.Tensor, sigma: float = 1
         kernel_size += 1
 
     pad    = kernel_size // 2
-    coords = torch.arange(kernel_size, dtype=torch.float64, device=device) - pad
+    coords = torch.arange(kernel_size, dtype=safe_dtype(torch.float64), device=device) - pad
     gauss  = torch.exp(-0.5 * (coords / sigma) ** 2)
     gauss /= gauss.sum()
     kernel_2d = (gauss[:, None] * gauss[None, :]).to(dtype=dtype)
@@ -1180,7 +1181,7 @@ def adain_patchwise_row_batch(content: torch.Tensor, style: torch.Tensor, sigma:
         kernel_size += 1
 
     pad = kernel_size // 2
-    coords = torch.arange(kernel_size, dtype=torch.float64, device=device) - pad
+    coords = torch.arange(kernel_size, dtype=safe_dtype(torch.float64), device=device) - pad
     gauss = torch.exp(-0.5 * (coords / sigma) ** 2)
     gauss = (gauss / gauss.sum()).to(dtype)
     kernel_2d = (gauss[:, None] * gauss[None, :])
@@ -1251,7 +1252,7 @@ def adain_patchwise_row_batch_medblur(content: torch.Tensor, style: torch.Tensor
             sigma_scale = scaling[0, 0]  # assuming single-channel mask broadcasted across B, C
 
     if not use_median_blur:
-        coords = torch.arange(kernel_size, dtype=torch.float64, device=device) - pad
+        coords = torch.arange(kernel_size, dtype=safe_dtype(torch.float64), device=device) - pad
         base_gauss = torch.exp(-0.5 * (coords / sigma) ** 2)
         base_gauss = (base_gauss / base_gauss.sum()).to(dtype)
         gaussian_table = {}
@@ -1338,7 +1339,7 @@ def adain_patchwise_row_batch_realmedblur(content: torch.Tensor, style: torch.Te
             sigma_scale = scaling[0, 0]  # assuming single-channel mask broadcasted across B, C
 
     if not use_median_blur:
-        coords = torch.arange(kernel_size, dtype=torch.float64, device=device) - pad
+        coords = torch.arange(kernel_size, dtype=safe_dtype(torch.float64), device=device) - pad
         base_gauss = torch.exp(-0.5 * (coords / sigma) ** 2)
         base_gauss = (base_gauss / base_gauss.sum()).to(dtype)
         gaussian_table = {}

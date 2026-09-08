@@ -14,7 +14,8 @@ from .deis_coefficients import get_deis_coeff_list
 from .latents import hard_light_blend
 
 from .noise_sigmas_timesteps_scaling import get_res4lyf_step_with_model, get_res4lyf_half_step3
-from ..device_utils import get_torch_device, empty_cache
+from ..device_utils import get_torch_device, empty_cache, safe_dtype
+
 
 
 def get_epsilon(model, x, sigma, **extra_args):
@@ -625,12 +626,12 @@ def get_rk_methods(rk_type, h, c1=0.0, c2=0.5, c3=1.0, h_prev=None, h_prev2=None
     return ab, ci, multistep_stages, model_call, alpha_fn, t_fn, sigma_fn, h_fn, FSAL, EPS_PRED
 
 def get_rk_methods_order(rk_type):
-    ab, ci, multistep_stages, model_call, alpha_fn, t_fn, sigma_fn, h_fn, FSAL, EPS_PRED = get_rk_methods(rk_type, torch.tensor(1.0).to(get_torch_device()).to(torch.float64), c1=0.0, c2=0.5, c3=1.0)
+    ab, ci, multistep_stages, model_call, alpha_fn, t_fn, sigma_fn, h_fn, FSAL, EPS_PRED = get_rk_methods(rk_type, torch.tensor(1.0).to(get_torch_device()).to(safe_dtype(torch.float64)), c1=0.0, c2=0.5, c3=1.0)
     return len(ci)-1
 
 def get_rk_methods_order_and_fn(rk_type, h=None, c1=None, c2=None, c3=None, h_prev=None, h_prev2=None, stepcount=0, sigmas=None):
     if h == None:
-        ab, ci, multistep_stages, model_call, alpha_fn, t_fn, sigma_fn, h_fn, FSAL, EPS_PRED = get_rk_methods(rk_type, torch.tensor(1.0).to(get_torch_device()).to(torch.float64), c1=0.0, c2=0.5, c3=1.0)
+        ab, ci, multistep_stages, model_call, alpha_fn, t_fn, sigma_fn, h_fn, FSAL, EPS_PRED = get_rk_methods(rk_type, torch.tensor(1.0).to(get_torch_device()).to(safe_dtype(torch.float64)), c1=0.0, c2=0.5, c3=1.0)
     else:
         ab, ci, multistep_stages, model_call, alpha_fn, t_fn, sigma_fn, h_fn, FSAL, EPS_PRED = get_rk_methods(rk_type, h, c1, c2, c3, h_prev, h_prev2, stepcount, sigmas)
     return len(ci)-1, model_call, alpha_fn, t_fn, sigma_fn, h_fn, FSAL, EPS_PRED

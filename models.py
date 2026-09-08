@@ -1,5 +1,7 @@
 import copy
 import torch
+from .device_utils import safe_dtype
+
 import types
 from typing import Optional, Callable, Tuple, Dict, Any, Union, TYPE_CHECKING, TypeVar
 import re
@@ -222,7 +224,7 @@ class ReWanPatcherAdvanced:
 
     def main(self, model, self_attn_blocks, cross_attn_blocks, sliding_window_self_attn="false", sliding_window_frames=60, style_dtype="float32", enable=True, force=False):
 
-        style_dtype = getattr(torch, style_dtype) if style_dtype != "default" else torch.float64
+        style_dtype = getattr(torch, style_dtype) if style_dtype != "default" else safe_dtype(torch.float64)
 
         sliding_window_size = sliding_window_frames // 4
 
@@ -322,7 +324,7 @@ class ReFluxPatcherAdvanced:
         doublestream_blocks = parse_range_string(doublestream_blocks)
         singlestream_blocks = parse_range_string(singlestream_blocks)
 
-        style_dtype = getattr(torch, style_dtype) if style_dtype != "default" else torch.float64
+        style_dtype = getattr(torch, style_dtype) if style_dtype != "default" else safe_dtype(torch.float64)
 
         dm = model.model.diffusion_model
         if dm.__class__ not in {ReFlux, Flux}:
@@ -413,7 +415,7 @@ class ReReduxPatcher:
 
         m.model.__class__      = ReReduxImageEncoder
         m.model.threshold_inv  = False
-        m.model.style_dtype    = getattr(torch, style_dtype) if style_dtype != "default" else torch.float64
+        m.model.style_dtype    = getattr(torch, style_dtype) if style_dtype != "default" else safe_dtype(torch.float64)
         m.model.proj_weights   = None
         m.model.y0_adain_embed = None
 
@@ -451,7 +453,7 @@ class ReChromaPatcherAdvanced:
         doublestream_blocks = parse_range_string(doublestream_blocks)
         singlestream_blocks = parse_range_string(singlestream_blocks)
 
-        style_dtype = getattr(torch, style_dtype) if style_dtype != "default" else torch.float64
+        style_dtype = getattr(torch, style_dtype) if style_dtype != "default" else safe_dtype(torch.float64)
 
         dm = model.model.diffusion_model
         if dm.__class__ not in {ReChroma, Chroma}:
@@ -540,7 +542,7 @@ class ReLTXVPatcherAdvanced:
         doublestream_blocks = parse_range_string(doublestream_blocks)
         singlestream_blocks = parse_range_string(singlestream_blocks)
 
-        style_dtype = getattr(torch, style_dtype) if style_dtype != "default" else torch.float64
+        style_dtype = getattr(torch, style_dtype) if style_dtype != "default" else safe_dtype(torch.float64)
 
         dm = model.model.diffusion_model
         if dm.__class__ not in {ReLTXVModel, LTXVModel}:
@@ -604,7 +606,7 @@ class ReSDPatcher:
 
     def main(self, model, style_dtype, enable=True, force=False):
 
-        style_dtype = getattr(torch, style_dtype) if style_dtype != "default" else torch.float64
+        style_dtype = getattr(torch, style_dtype) if style_dtype != "default" else safe_dtype(torch.float64)
 
         dm = model.model.diffusion_model
         if dm.__class__ not in {ReUNetModel, UNetModel}:
@@ -686,7 +688,7 @@ class ReHiDreamPatcherAdvanced:
         double_stream_blocks = parse_range_string(double_stream_blocks)
         single_stream_blocks = parse_range_string(single_stream_blocks)
 
-        style_dtype = getattr(torch, style_dtype) if style_dtype != "default" else torch.float64
+        style_dtype = getattr(torch, style_dtype) if style_dtype != "default" else safe_dtype(torch.float64)
 
         dm = model.model.diffusion_model
         if dm.__class__ not in {HDModel, HiDreamImageTransformer2DModel}:
@@ -822,7 +824,7 @@ class ReSD35PatcherAdvanced:
 
     def main(self, model, joint_blocks, style_dtype, enable=True, force=False):
 
-        style_dtype = getattr(torch, style_dtype) if style_dtype != "default" else torch.float64
+        style_dtype = getattr(torch, style_dtype) if style_dtype != "default" else safe_dtype(torch.float64)
 
         joint_blocks = parse_range_string(joint_blocks)
 
@@ -902,7 +904,7 @@ class ReAuraPatcherAdvanced:
         doublelayer_blocks = parse_range_string(doublelayer_blocks)
         singlelayer_blocks = parse_range_string(singlelayer_blocks)
 
-        style_dtype = getattr(torch, style_dtype) if style_dtype != "default" else torch.float64
+        style_dtype = getattr(torch, style_dtype) if style_dtype != "default" else safe_dtype(torch.float64)
 
         dm = model.model.diffusion_model
         if dm.__class__ not in {ReMMDiT, MMDiT}:
@@ -1131,7 +1133,7 @@ class ModelSamplingAdvanced:
         m.model.model_sampling.__dict__['shift']      = self.timestep_shift
         m.model.model_sampling.__dict__['multiplier'] = self.multiplier
 
-        s_range = torch.arange(1, timesteps + 1, 1).to(torch.float64)
+        s_range = torch.arange(1, timesteps + 1, 1).to(safe_dtype(torch.float64))
         if scaling == "exponential": 
             ts = self.sigma_exponential((s_range / timesteps) * self.multiplier)
         elif scaling == "linear": 
@@ -1240,7 +1242,7 @@ class ModelSamplingAdvancedResolution:
         m.model.model_sampling.__dict__['shift'] = self.timestep_shift
         m.model.model_sampling.__dict__['multiplier'] = self.multiplier
 
-        s_range = torch.arange(1, timesteps + 1, 1).to(torch.float64)
+        s_range = torch.arange(1, timesteps + 1, 1).to(safe_dtype(torch.float64))
         if scaling == "exponential": 
             ts = self.sigma_exponential((s_range / timesteps) * self.multiplier)
         elif scaling == "linear": 

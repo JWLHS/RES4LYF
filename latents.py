@@ -3,7 +3,8 @@ import torch.nn.functional as F
 from typing import Tuple, List, Union
 import math
 from .res4lyf import RESplain
-from .device_utils import get_torch_device
+from .device_utils import get_torch_device, safe_dtype
+
 
 import comfy.utils
 
@@ -676,8 +677,8 @@ def interpolate_spd(cov1, cov2, t, eps=1e-5):
         cov1 = cov1.float()
         cov2 = cov2.float()
     else:
-        cov1 = cov1.double()
-        cov2 = cov2.double()
+        cov1 = cov1.to(safe_dtype(torch.float64))
+        cov2 = cov2.to(safe_dtype(torch.float64))
 
     M1 = cov1.clone()
     M1.diagonal().add_(eps)
@@ -847,7 +848,7 @@ def gaussian_blur_2d(img: torch.Tensor, sigma: float, kernel_size: int = None) -
     if kernel_size % 2 == 0:
         kernel_size += 1
 
-    coords = torch.arange(kernel_size, dtype=torch.float64) - kernel_size // 2
+    coords = torch.arange(kernel_size, dtype=safe_dtype(torch.float64)) - kernel_size // 2
     g = torch.exp(-0.5 * (coords / sigma) ** 2)
     g = g / g.sum()
 

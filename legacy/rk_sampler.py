@@ -1,4 +1,6 @@
 import torch
+from ..device_utils import safe_dtype
+
 import torch.nn.functional as F
 
 from tqdm.auto import trange
@@ -98,7 +100,7 @@ def sample_rk(model, x, sigmas, extra_args=None, callback=None, disable=None, no
     MODEL_SAMPLING = model.inner_model.inner_model.model_sampling
     
     s_in, s_one = x.new_ones([x.shape[0]]), x.new_ones([1])
-    default_dtype = getattr(torch, get_extra_options_kv("default_dtype", "float64", extra_options), torch.float64)   
+    default_dtype = getattr(torch, get_extra_options_kv("default_dtype", "float64", extra_options), safe_dtype(torch.float64))   
     max_steps=10000
     
     

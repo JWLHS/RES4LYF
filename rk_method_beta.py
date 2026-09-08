@@ -11,7 +11,8 @@ from .phi_functions        import Phi
 from .rk_coefficients_beta import get_implicit_sampler_name_list, get_rk_methods_beta
 from ..helper              import ExtraOptions
 from ..latents             import get_orthogonal, get_collinear, get_cosine_similarity, tile_latent, untile_latent
-from ..device_utils        import get_torch_device
+from ..device_utils        import get_torch_device, safe_dtype
+
 
 from ..res4lyf             import RESplain
 
@@ -36,7 +37,7 @@ class RK_Method_Beta:
                 noise_boost_normalize : bool        = True,
                 model_device                   = None,
                 work_device           : str         = 'cpu',
-                dtype                 : torch.dtype = torch.float64,
+                dtype                 : torch.dtype = safe_dtype(torch.float64),
                 extra_options         : str         = ""
                 ):
         
@@ -113,7 +114,7 @@ class RK_Method_Beta:
             noise_boost_normalize  : bool = True,
             model_device                   = None,
             work_device   : str         = 'cpu',
-            dtype         : torch.dtype = torch.float64,
+            dtype         : torch.dtype = safe_dtype(torch.float64),
             extra_options : str         = ""
             ) -> "Union[RK_Method_Exponential, RK_Method_Linear]":
         
@@ -771,7 +772,7 @@ class RK_Method_Exponential(RK_Method_Beta):
 
                 model_device                   = None,
                 work_device   : str         = 'cpu',
-                dtype         : torch.dtype = torch.float64,
+                dtype         : torch.dtype = safe_dtype(torch.float64),
                 extra_options : str         = "",
                 ):
         
@@ -893,7 +894,7 @@ class RK_Method_Linear(RK_Method_Beta):
                 noise_boost_normalize  : bool,
                 model_device                   = None,
                 work_device   : str         = 'cpu',
-                dtype         : torch.dtype = torch.float64,
+                dtype         : torch.dtype = safe_dtype(torch.float64),
                 extra_options : str         = "",
                 ):
         

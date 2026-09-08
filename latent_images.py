@@ -6,6 +6,8 @@ import comfy.utils
 import itertools
 
 import torch
+from .device_utils import safe_dtype
+
 import math
 import re
 
@@ -70,8 +72,8 @@ class latent_channelwise_match:
         else:
             #x_target = model.inner_model.inner_model.process_latent_in(latent_target['samples']).clone() 
             #x_source = model.inner_model.inner_model.process_latent_in(latent_source['samples']).clone()
-            x_target = model.model.process_latent_in(latent_target['samples']).clone().to(torch.float64)
-            x_source = model.model.process_latent_in(latent_source['samples']).clone().to(torch.float64)
+            x_target = model.model.process_latent_in(latent_target['samples']).clone().to(safe_dtype(torch.float64))
+            x_source = model.model.process_latent_in(latent_source['samples']).clone().to(safe_dtype(torch.float64))
         
         if mask_target is None:
             mask_target = torch.ones_like(x_target)

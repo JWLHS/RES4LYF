@@ -9,7 +9,8 @@ import copy
 from nodes import MAX_RESOLUTION
 
 from ..helper                import OptionsManager, FrameWeightsManager, initialize_or_scale, get_res4lyf_scheduler_list, parse_range_string, parse_tile_sizes
-from .device_utils           import get_torch_device
+from .device_utils           import get_torch_device, safe_dtype
+
 
 from .rk_coefficients_beta   import RK_SAMPLER_NAMES_BETA_FOLDERS, get_default_sampler_name, get_sampler_name_list, process_sampler_name
 
@@ -244,7 +245,7 @@ class ClownOptions_DetailBoost_Beta:
         
         options = options if options is not None else {}
         
-        default_dtype = torch.float64
+        default_dtype = safe_dtype(torch.float64)
         default_device = get_torch_device()
         
         if noise_scaling_type.endswith("_normal"):
@@ -355,7 +356,7 @@ class ClownOptions_SigmaScaling_Beta:
         
         options = options if options is not None else {}
         
-        default_dtype = torch.float64
+        default_dtype = safe_dtype(torch.float64)
         default_device = get_torch_device()
         
         
@@ -963,7 +964,7 @@ class ClownGuide_Mean_Beta:
             guides                    = None,
             ):
         
-        default_dtype = torch.float64
+        default_dtype = safe_dtype(torch.float64)
         
         mask = 1-mask if mask is not None else None
         
@@ -1048,7 +1049,7 @@ class ClownGuide_Style_Beta:
             guides           = None,
             ):
         
-        default_dtype = torch.float64
+        default_dtype = safe_dtype(torch.float64)
         
         mask = 1-mask if mask is not None else None
         
@@ -1154,7 +1155,7 @@ class ClownGuide_AdaIN_MMDiT_Beta:
             guides           = None,
             ):
         
-        default_dtype = torch.float64
+        default_dtype = safe_dtype(torch.float64)
         
         mask = 1-mask if mask is not None else None
         
@@ -1326,7 +1327,7 @@ class ClownGuide_AttnInj_MMDiT_Beta:
             guides           = None,
             ):
         
-        default_dtype = torch.float64
+        default_dtype = safe_dtype(torch.float64)
         
         mask = 1-mask if mask is not None else None
         
@@ -1600,7 +1601,7 @@ class ClownGuides_Beta:
             invert_mask               = False,
             ):
 
-        default_dtype = torch.float64
+        default_dtype = safe_dtype(torch.float64)
         
         if end_step_masked   == -1:
             end_step_masked   = MAX_STEPS
@@ -1750,7 +1751,7 @@ class ClownGuidesAB_Beta:
             invert_masks       : bool = False,
             ):
         
-        default_dtype = torch.float64
+        default_dtype = safe_dtype(torch.float64)
         
         if end_step_A == -1:
             end_step_A = MAX_STEPS

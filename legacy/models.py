@@ -9,6 +9,8 @@ from comfy_extras.nodes_model_advanced import ModelSamplingSD3, ModelSamplingFlu
 
 
 import torch
+from ..device_utils import safe_dtype
+
 
 import folder_paths
 import os
@@ -251,7 +253,7 @@ class ModelSamplingAdvanced:
         m.model.model_sampling.__dict__['shift']      = self.timestep_shift
         m.model.model_sampling.__dict__['multiplier'] = self.multiplier
 
-        s_range = torch.arange(1, timesteps + 1, 1).to(torch.float64)
+        s_range = torch.arange(1, timesteps + 1, 1).to(safe_dtype(torch.float64))
         if scaling == "exponential": 
             ts = self.sigma_exponential((s_range / timesteps) * self.multiplier)
         elif scaling == "linear": 
@@ -327,7 +329,7 @@ class ModelSamplingAdvancedResolution:
         m.model.model_sampling.__dict__['shift']      = self.timestep_shift
         m.model.model_sampling.__dict__['multiplier'] = self.multiplier
 
-        s_range = torch.arange(1, timesteps + 1, 1).to(torch.float64)
+        s_range = torch.arange(1, timesteps + 1, 1).to(safe_dtype(torch.float64))
         if scaling == "exponential": 
             ts = self.sigma_exponential((s_range / timesteps) * self.multiplier)
         elif scaling == "linear": 

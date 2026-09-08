@@ -11,7 +11,8 @@ from copy import deepcopy
 
 from .helper import initialize_or_scale
 import torch.nn.functional as F
-from ..device_utils import get_torch_device
+from ..device_utils import get_torch_device, safe_dtype
+
 import copy
 
 from .helper import get_orthogonal, get_collinear
@@ -393,12 +394,12 @@ class Conditioning_Recast64:
 
     @precision_tool.cast_tensor
     def main(self, cond_0, cond_1 = None):
-        cond_0[0][0] = cond_0[0][0].to(torch.float64)
-        cond_0[0][1]["pooled_output"] = cond_0[0][1]["pooled_output"].to(torch.float64)
+        cond_0[0][0] = cond_0[0][0].to(safe_dtype(torch.float64))
+        cond_0[0][1]["pooled_output"] = cond_0[0][1]["pooled_output"].to(safe_dtype(torch.float64))
         
         if cond_1 is not None:
-            cond_1[0][0] = cond_1[0][0].to(torch.float64)
-            cond_1[0][1]["pooled_output"] = cond_1[0][1]["pooled_output"].to(torch.float64)
+            cond_1[0][0] = cond_1[0][0].to(safe_dtype(torch.float64))
+            cond_1[0][1]["pooled_output"] = cond_1[0][1]["pooled_output"].to(safe_dtype(torch.float64))
 
         return (cond_0, cond_1,)
 
@@ -634,7 +635,7 @@ class FluxRegionalConditioning:
     def main(self, conditioning_regional, mask_weight=1.0, start_percent=0.0, end_percent=1.0, start_step=0, end_step=10000, conditioning=None, mask_weights=None, self_attn_floors=None, self_attn_floor=0.0, mask_type="gradient", latent=None):
         weight, weights = mask_weight, mask_weights
         floor, floors = self_attn_floor, self_attn_floors
-        default_dtype = torch.float64
+        default_dtype = safe_dtype(torch.float64)
         max_steps = 10000
         weights = initialize_or_scale(weights, weight, max_steps).to(default_dtype)
         weights = F.pad(weights, (0, max_steps), value=0.0)
@@ -702,7 +703,7 @@ class ClownRegionalConditioningFlux:
 
         weight, weights = mask_weight, mask_weights
         floor, floors = region_bleed, region_bleeds
-        default_dtype = torch.float64
+        default_dtype = safe_dtype(torch.float64)
         max_steps = 10000
         weights = initialize_or_scale(weights, weight, max_steps).to(default_dtype)
         weights = F.pad(weights, (0, max_steps), value=0.0)

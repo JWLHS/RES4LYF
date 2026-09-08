@@ -13,7 +13,8 @@ import random
 import copy
 
 from io import BytesIO
-from .device_utils import manual_seed_all, pinv, whitening_eigh
+from .device_utils import manual_seed_all, pinv, whitening_eigh, safe_dtype
+
 
 import matplotlib.pyplot as plt
 import matplotlib
@@ -371,7 +372,7 @@ class VAEStyleTransferLatent:
             y0 = y0.squeeze(0)
         
         if   hasattr(vae.first_stage_model, "up_blocks"): # probably stable cascade stage A
-            x_embedder = copy.deepcopy(vae.first_stage_model.up_blocks[0][0]).to(torch.float64)
+            x_embedder = copy.deepcopy(vae.first_stage_model.up_blocks[0][0]).to(safe_dtype(torch.float64))
             denoised_embed = x_embedder(denoised.to(x_embedder.weight))
             y0_embed       = x_embedder(y0.to(x_embedder.weight))
             
@@ -381,7 +382,7 @@ class VAEStyleTransferLatent:
             
             
         elif hasattr(vae.first_stage_model, "decoder"):   # probably sd15, sdxl, sd35, flux, wan, etc. vae
-            x_embedder = copy.deepcopy(vae.first_stage_model.decoder.conv_in).to(torch.float64)
+            x_embedder = copy.deepcopy(vae.first_stage_model.decoder.conv_in).to(safe_dtype(torch.float64))
             denoised_embed = x_embedder(denoised.to(x_embedder.weight))
             y0_embed       = x_embedder(y0.to(x_embedder.weight))
             
@@ -390,8 +391,8 @@ class VAEStyleTransferLatent:
             denoised_styled = invert_conv2d(x_embedder, denoised_embed, denoised.shape).to(denoised)
         
         elif type(vae.first_stage_model) == StageC_coder:
-            x_embedder = copy.deepcopy(vae.first_stage_model.encoder.mapper[0]).to(torch.float64)
-            #x_embedder = copy.deepcopy(vae.first_stage_model.previewer.blocks[0]).to(torch.float64) # use with strategy for decoder above, but exploding latent problem, 1.E30 etc. quick to nan
+            x_embedder = copy.deepcopy(vae.first_stage_model.encoder.mapper[0]).to(safe_dtype(torch.float64))
+            #x_embedder = copy.deepcopy(vae.first_stage_model.previewer.blocks[0]).to(safe_dtype(torch.float64)) # use with strategy for decoder above, but exploding latent problem, 1.E30 etc. quick to nan
 
             denoised_embed = invert_conv2d(x_embedder, denoised, denoised.shape)
             y0_embed       = invert_conv2d(x_embedder, y0, y0.shape)

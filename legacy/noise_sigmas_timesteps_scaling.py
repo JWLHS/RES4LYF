@@ -1,4 +1,6 @@
 import torch
+from ..device_utils import safe_dtype
+
 #from..noise_classes import *
 import comfy.model_patcher
 from .helper import has_nested_attr
@@ -35,21 +37,21 @@ def get_alpha_ratio_from_sigma_down(sigma_down, sigma_next, eta, sigma_max=1.0):
 def get_ancestral_step_RF_var(sigma, sigma_next, eta, sigma_max=1.0):
     dtype = sigma.dtype #calculate variance adjusted sigma up... sigma_up = sqrt(dt)
 
-    sigma, sigma_next = sigma.to(torch.float64), sigma_next.to(torch.float64) # float64 is very important to avoid numerical precision issues
+    sigma, sigma_next = sigma.to(safe_dtype(torch.float64)), sigma_next.to(safe_dtype(torch.float64)) # float64 is very important to avoid numerical precision issues
 
     sigma_diff = (sigma - sigma_next).abs() + 1e-10 
-    sigma_up = torch.sqrt(sigma_diff).to(torch.float64) * eta
+    sigma_up = torch.sqrt(sigma_diff).to(safe_dtype(torch.float64)) * eta
 
-    sigma_down_num = (sigma_next**2 - sigma_up**2).to(torch.float64)
-    sigma_down = torch.sqrt(sigma_down_num) / ((1 - sigma_next).to(torch.float64) + torch.sqrt(sigma_down_num).to(torch.float64))
+    sigma_down_num = (sigma_next**2 - sigma_up**2).to(safe_dtype(torch.float64))
+    sigma_down = torch.sqrt(sigma_down_num) / ((1 - sigma_next).to(safe_dtype(torch.float64)) + torch.sqrt(sigma_down_num).to(safe_dtype(torch.float64)))
 
-    alpha_ratio = (1 - sigma_next).to(torch.float64) / (1 - sigma_down).to(torch.float64)
+    alpha_ratio = (1 - sigma_next).to(safe_dtype(torch.float64)) / (1 - sigma_down).to(safe_dtype(torch.float64))
     
     return sigma_up.to(dtype),  sigma_down.to(dtype), alpha_ratio.to(dtype)
   
 def get_ancestral_step_RF_lorentzian(sigma, sigma_next, eta, sigma_max=1.0):
     dtype = sigma.dtype
-    alpha = 1 / ((sigma.to(torch.float64))**2 + 1)
+    alpha = 1 / ((sigma.to(safe_dtype(torch.float64)))**2 + 1)
     sigma_up = eta * (1 - alpha) ** 0.5
     alpha_ratio, sigma_up, sigma_down = get_alpha_ratio_from_sigma_up(sigma_up, sigma_next, eta, sigma_max)
     return sigma_up.to(dtype),  sigma_down.to(dtype), alpha_ratio.to(dtype)

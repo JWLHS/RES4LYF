@@ -11,7 +11,8 @@ import einops
 from einops import repeat, rearrange
 
 from comfy.ldm.lightricks.model import TimestepEmbedding, Timesteps
-from ..device_utils import get_torch_device
+from ..device_utils import get_torch_device, safe_dtype
+
 import torch.nn.functional as F
 
 from comfy.ldm.flux.math import apply_rope, rope
@@ -188,7 +189,7 @@ class HDMoEGate(nn.Module):
 
     def forward(self, x):
         dtype = self.weight.dtype
-        if dtype not in {torch.bfloat16, torch.float16, torch.float32, torch.float64}:
+        if dtype not in {torch.bfloat16, torch.float16, torch.float32, safe_dtype(torch.float64)}:
             dtype = torch.float32
             self.weight.data = self.weight.data.to(dtype)
         
@@ -914,7 +915,7 @@ class HDModel(nn.Module):
                 
         
                 x_embedder_dtype = self.x_embedder.proj.weight.data.dtype
-                if x_embedder_dtype not in {torch.bfloat16, torch.float16, torch.float32, torch.float64}:
+                if x_embedder_dtype not in {torch.bfloat16, torch.float16, torch.float32, safe_dtype(torch.float64)}:
                     x_embedder_dtype = x.dtype
                 
                 img_sizes = None
@@ -1366,7 +1367,7 @@ class HDModel(nn.Module):
         if not torch.is_tensor(t):
             is_mps = device.type == "mps"
             if isinstance(t, float):
-                dtype = torch.float32 if is_mps else torch.float64
+                dtype = torch.float32 if is_mps else safe_dtype(torch.float64)
             else:
                 dtype = torch.int32   if is_mps else torch.int64
             t = Tensor([t], dtype=dtype, device=device)
@@ -1455,7 +1456,7 @@ class HDLastLayer(nn.Module):
         x_dtype = x.dtype
         
         dtype = self.linear.weight.dtype
-        if dtype not in {torch.bfloat16, torch.float16, torch.float32, torch.float64}:
+        if dtype not in {torch.bfloat16, torch.float16, torch.float32, safe_dtype(torch.float64)}:
             dtype = torch.float32
             self.linear.weight.data = self.linear.weight.data.to(dtype)
             self.linear.bias.data = self.linear.bias.data.to(dtype)

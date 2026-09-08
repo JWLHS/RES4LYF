@@ -1,4 +1,6 @@
 import torch
+from ..device_utils import safe_dtype
+
 from einops import rearrange
 from torch import Tensor
 from comfy.ldm.modules.attention import attention_pytorch
@@ -28,7 +30,7 @@ def rope(pos: Tensor, dim: int, theta: int) -> Tensor:
     else:
         device = pos.device
 
-    scale = torch.linspace(0, (dim - 2) / dim, steps=dim//2, dtype=torch.float64, device=device)
+    scale = torch.linspace(0, (dim - 2) / dim, steps=dim//2, dtype=safe_dtype(torch.float64), device=device)
     omega = 1.0 / (theta**scale)
     out = torch.einsum("...n,d->...nd", pos.to(dtype=torch.float32, device=device), omega)
     out = torch.stack([torch.cos(out), -torch.sin(out), torch.sin(out), torch.cos(out)], dim=-1)

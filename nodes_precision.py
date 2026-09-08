@@ -1,4 +1,6 @@
 import torch
+from .device_utils import safe_dtype
+
 from .helper import precision_tool
 
 
@@ -38,8 +40,8 @@ class set_precision:
                 x = latent_image["samples"].to(torch.float32)
             case "64":
                 if set_default is True:
-                    torch.set_default_dtype(torch.float64)
-                x = latent_image["samples"].to(torch.float64)
+                    torch.set_default_dtype(safe_dtype(torch.float64))
+                x = latent_image["samples"].to(safe_dtype(torch.float64))
         return ({"samples": x}, )
 
 
@@ -94,7 +96,7 @@ class set_precision_universal:
             case "fp32":
                 dtype = torch.float32
             case "fp64":
-                dtype = torch.float64
+                dtype = safe_dtype(torch.float64)
             case "passthrough":
                 return (cond_pos, cond_neg, sigmas, latent_image, )
         
@@ -155,7 +157,7 @@ class set_precision_advanced:
         dtype_map = {
             "16": torch.float16,
             "32": torch.float32,
-            "64": torch.float64
+            "64": safe_dtype(torch.float64)
         }
         precision_map = {
             "16": 'fp16',
@@ -170,7 +172,7 @@ class set_precision_advanced:
 
         latent_out16 = latent_image["samples"].to(torch.float16)
         latent_out32 = latent_image["samples"].to(torch.float32)
-        latent_out64 = latent_image["samples"].to(torch.float64)
+        latent_out64 = latent_image["samples"].to(safe_dtype(torch.float64))
 
         target_dtype = dtype_map[global_precision]
         if latent_image["samples"].dtype != target_dtype:
