@@ -4782,6 +4782,12 @@ class ClownGuides_VideoAudioMask:
             "audio_samples_per_second": 0.0,
             "audio_latent_downsample": 1,
         },
+        "MiniMaxH3": {
+            "video_temporal_compression": 4,
+            "frames_per_token_cycle": (1, 4, 4, 4, 4),
+            "audio_samples_per_second": 32000.0,
+            "audio_latent_downsample": 800,
+        },
     }
 
     @classmethod
@@ -4874,8 +4880,15 @@ class ClownGuides_VideoAudioMask:
             audio_mask = torch.full(audio_shape, fill_value=audio_init_value, dtype=sample_dtype, device=sample_device)
 
         if mask_video and len(video_shape) == 5:
-            video_pixel_frame_count = (video_latent_frames - 1) * video_temporal_compression + 1
-            xp = [0] + list(range(1, video_pixel_frame_count + video_temporal_compression, video_temporal_compression))
+            frames_per_token_cycle = self.MODEL_PRESETS[model_type].get("frames_per_token_cycle")
+            if frames_per_token_cycle is not None:
+                xp = [0]
+                for i in range(video_latent_frames + 1):
+                    xp.append(xp[-1] + frames_per_token_cycle[i % len(frames_per_token_cycle)])
+                video_pixel_frame_count = xp[video_latent_frames]
+            else:
+                video_pixel_frame_count = (video_latent_frames - 1) * video_temporal_compression + 1
+                xp = [0] + list(range(1, video_pixel_frame_count + video_temporal_compression, video_temporal_compression))
 
             video_pixel_start = int(round(start_time * video_fps))
             video_pixel_end = int(round(end_time * video_fps))
@@ -4982,7 +4995,7 @@ class ClownGuides_VideoAudioMask:
                 video_mask.fill_(1.0)
 
         if mask_audio and audio_shape is not None:
-            audio_latent_frames = audio_shape[2] if len(audio_shape) >= 3 else 1
+            audio_latent_frames = audio_shape[-1] if len(audio_shape) >= 3 else 1
             audio_latent_start = int(round(start_time * audio_latents_per_second))
             audio_latent_end = int(round(end_time * audio_latents_per_second)) + 1
 
@@ -4990,7 +5003,7 @@ class ClownGuides_VideoAudioMask:
             audio_latent_end = max(0, min(audio_latent_end, audio_latent_frames))
 
             if len(audio_shape) >= 3:
-                audio_mask[:, :, audio_latent_start:audio_latent_end] = 1.0
+                audio_mask[..., audio_latent_start:audio_latent_end] = 1.0
             else:
                 audio_mask.fill_(1.0)
 

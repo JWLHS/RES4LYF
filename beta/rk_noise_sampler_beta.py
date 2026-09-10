@@ -104,6 +104,7 @@ class RK_NoiseSampler:
         self.av_shift_video         = None
         self.av_shift_audio         = None
         self.av_audio_noise_scale   = 1.0
+        self.av_audio_eta_scale     = 1.0
         if not self.EO("av_disable"):
             self._init_av_streams(model)
 
@@ -133,6 +134,7 @@ class RK_NoiseSampler:
         self.av_split             = int(math.prod(latent_shapes[0][1:]))
         self.av_total             = self.av_split + int(math.prod(latent_shapes[1][1:]))
         self.av_audio_noise_scale = self.EO("av_audio_noise_scale", 1.0)
+        self.av_audio_eta_scale   = self.EO("av_audio_eta_scale",   1.0)
 
         shift_audio = getattr(diffusion_model, "sigma_shift_audio", None)
         # when model_sampling uses audio_scale skip shifting the audio schedule
@@ -183,6 +185,15 @@ class RK_NoiseSampler:
             return noise
         noise[..., self.av_split:] *= ratio
         return noise
+
+    def blend_av_eta(self, x_noised:Tensor, x_next:Tensor) -> Tensor:
+        # interpolate the audio columns between the deterministic landing (x_next) and the full eta result
+        # 0.0 gives audio a pure ODE step while video keeps its eta, 1.0 leaves the eta step untouched
+        if self.av_split is None or self.av_audio_eta_scale == 1.0 or x_noised.shape[-1] != self.av_total:
+            return x_noised
+        w = self.av_audio_eta_scale
+        x_noised[..., self.av_split:] = (1.0 - w) * x_next[..., self.av_split:] + w * x_noised[..., self.av_split:]
+        return x_noised
 
     def init_noise_samplers(self,
                             x                      : Tensor,              
@@ -607,6 +618,7 @@ class RK_NoiseSampler:
         noise = self.scale_av_noise(noise, self.sigma, self.sigma_next)
 
         x_noised = self.alpha_ratio_eta * (denoised_next + self.sigma_down_eta * eps_next) + self.sigma_up_eta * noise * self.s_noise
+        x_noised = self.blend_av_eta(x_noised, x_next)
 
         if mask is not None:
             x = mask * x_noised + (1-mask) * x_next
@@ -637,6 +649,7 @@ class RK_NoiseSampler:
         noise = self.scale_av_noise(noise, self.sub_sigma, self.sub_sigma_next)
 
         x_noised = self.sub_alpha_ratio_eta * (denoised_next + self.sub_sigma_down_eta * eps_next) + self.sub_sigma_up_eta * noise * self.s_noise_substep
+        x_noised = self.blend_av_eta(x_noised, x_next)
 
         if mask is not None:
             x = mask * x_noised + (1-mask) * x_next
@@ -727,6 +740,7 @@ class RK_NoiseSampler:
         noise = self.scale_av_noise(noise, sigma, sigma_next)
 
         x = alpha_ratio * (denoised_next + sigma_down * eps_next) + sigma_up * noise * s_noise
+        x = self.blend_av_eta(x, x_next)
         return x
 
     # not used. WARNING: some parameters have a different order than swap_noise!
@@ -846,6 +860,7 @@ class RK_NoiseSampler:
             if SDE_NOISE_EXTERNAL:
                 noise = (1-s_noise) * noise + s_noise * sde_noise_t
             noise = self.scale_av_noise(noise, sigma, sigma_next)
+            # av eta blend is not applied here, this path never sees the deterministic landing point
 
             x_next = alpha_ratio * x + noise * sigma_up * s_noise
             
